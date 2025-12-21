@@ -8,7 +8,10 @@ export default function Calculator() {
   const [grandTotalCost, setGrandTotalCost] = useState(0);
   const [grandTotalProfit, setGrandTotalProfit] = useState(0);
   const [grandProjectValue, setGrandProjectValue] = useState(0);
-  const [realizedMargin, setRealizedMargin] = useState(0);
+  
+  // This is the dynamic percentage for the "Base" column
+  const [baseMarginPercent, setBaseMarginPercent] = useState(20); 
+  
   const [quoteTitle, setQuoteTitle] = useState("New Project Quotation");
 
   // --- VIEW MODES ---
@@ -31,7 +34,9 @@ export default function Calculator() {
     const transCost = product.factoryPrice * (transPercent / 100);
     const workCost = product.fitting + product.saddle + product.work;
     const unitInternalCost = product.factoryPrice + transCost + workCost;
-    const defaultPrice = unitInternalCost * 1.20; 
+    
+    // Calculate Price based on current Base Margin
+    const defaultPrice = unitInternalCost * (1 + baseMarginPercent / 100);
 
     const newRow = {
       id: Date.now(),
@@ -64,11 +69,9 @@ export default function Calculator() {
     setRows(rows.filter(r => r.id !== id));
   };
 
-  // --- FIXED UPDATE FUNCTION (Prevents Cursor Jumping) ---
   const updateRow = (id, field, value) => {
     const updatedRows = rows.map(row => {
       if (row.id === id) {
-        // We store exactly what you type (string), so decimals/zeros don't get eaten
         return { ...row, [field]: value };
       }
       return row;
@@ -92,7 +95,6 @@ export default function Calculator() {
     let totalProjectValueSum = 0;
 
     rows.forEach(row => {
-      // Convert strings to numbers ONLY for math (safely)
       const safeFactoryPrice = parseFloat(row.factoryPrice) || 0;
       const safeTransPercent = parseFloat(row.transPercent) || 0;
       const safeWorkCost = parseFloat(row.workCost) || 0;
@@ -110,32 +112,64 @@ export default function Calculator() {
 
     setGrandTotalCost(totalCostSum);
     setGrandProjectValue(totalProjectValueSum);
+    setGrandTotalProfit(totalProjectValueSum - totalCostSum);
 
-    const profit = totalProjectValueSum - totalCostSum;
-    setGrandTotalProfit(profit);
-
-    if (totalProjectValueSum > 0) {
-      setRealizedMargin((profit / totalProjectValueSum) * 100);
-    } else {
-      setRealizedMargin(0);
-    }
   }, [rows]);
 
+  // --- 3. MARGIN & OVERRIDE HANDLERS ---
+
+  // Handler A: User types a new Global Total -> Updates Margin & All Prices
   const handleGlobalValueChange = (newValue) => {
     const newGlobalTotal = parseFloat(newValue) || 0;
-    if (grandProjectValue === 0 || rows.length === 0) {
+    
+    if (grandProjectValue === 0 || rows.length === 0 || grandTotalCost === 0) {
+        // Just set the value if we can't do math yet
         setGrandProjectValue(newGlobalTotal);
         return;
     }
+
+    // 1. Update Prices
     const ratio = newGlobalTotal / grandProjectValue;
     const updatedRows = rows.map(row => ({
         ...row,
         quotedUnitPrice: parseFloat((row.quotedUnitPrice * ratio).toFixed(2))
     }));
     setRows(updatedRows);
+
+    // 2. Update Base Margin % to match this new reality
+    // Margin % = ((Total - Cost) / Cost) * 100  <-- Markup Logic
+    // OR Margin % = ((Total - Cost) / Total) * 100 <-- Gross Margin Logic
+    // Your "Base + 20%" logic implies Markup (Cost * 1.20).
+    // So we calculate Markup % here:
+    const newProfit = newGlobalTotal - grandTotalCost;
+    const newMarkupPercent = (newProfit / grandTotalCost) * 100;
+    setBaseMarginPercent(newMarkupPercent);
   };
 
-  // --- 3. PDF GENERATOR ---
+  // Handler B: User types a new Margin % -> Updates All Prices
+  const handleBaseMarginChange = (newVal) => {
+    const newMargin = parseFloat(newVal) || 0;
+    setBaseMarginPercent(newMargin);
+
+    // Recalculate all quoted prices to be Cost * (1 + Margin/100)
+    const updatedRows = rows.map(row => {
+        const safeFactoryPrice = parseFloat(row.factoryPrice) || 0;
+        const safeTransPercent = parseFloat(row.transPercent) || 0;
+        const safeWorkCost = parseFloat(row.workCost) || 0;
+        
+        const transportAmt = safeFactoryPrice * (safeTransPercent / 100);
+        const unitInternalCost = safeFactoryPrice + transportAmt + safeWorkCost;
+        
+        // Apply new margin
+        const newPrice = unitInternalCost * (1 + newMargin / 100);
+        
+        return { ...row, quotedUnitPrice: parseFloat(newPrice.toFixed(2)) };
+    });
+    setRows(updatedRows);
+  };
+
+
+  // --- 4. PDF GENERATOR ---
   const handleDownloadPDF = () => {
     const wasInClientMode = isClientMode;
     if (!isClientMode) setIsClientMode(true);
@@ -199,7 +233,6 @@ export default function Calculator() {
       {/* INPUT SECTION */}
       {!isClientMode && (
         <div ref={searchRef} style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ddd', position: 'relative', display:'flex', gap:'10px' }}>
-          
           <div style={{flex: 1, position:'relative'}}>
               <input 
                 type="text"
@@ -220,14 +253,7 @@ export default function Calculator() {
                 </div>
               )}
           </div>
-
-          <button 
-            onClick={addBlankRow}
-            style={{ padding:'0 25px', background:'#007bff', color:'white', border:'none', borderRadius:'4px', fontWeight:'bold', cursor:'pointer' }}
-          >
-            + Add Blank Row
-          </button>
-
+          <button onClick={addBlankRow} style={{ padding:'0 25px', background:'#007bff', color:'white', border:'none', borderRadius:'4px', fontWeight:'bold', cursor:'pointer' }}>+ Add Blank Row</button>
         </div>
       )}
 
@@ -258,7 +284,11 @@ export default function Calculator() {
                     <th style={{ padding: '10px', width: '60px', color:'#bbb' }}>Trn Amt</th>
                     <th style={{ padding: '10px', width: '60px', background:'#e1f5fe', color:'#01579b' }}>Work</th>
                     <th style={{ padding: '10px', width: '70px', background: '#555' }}>Int.Cost</th>
-                    <th style={{ padding: '10px', width: '70px', background: '#e0e0e0', color: '#333', borderLeft:'1px solid #999' }}>Base+20%</th>
+                    
+                    {/* NEW DYNAMIC BASE HEADER */}
+                    <th style={{ padding: '10px', width: '70px', background: '#e0e0e0', color: '#333', borderLeft:'1px solid #999' }}>
+                      Base +{baseMarginPercent.toFixed(0)}%
+                    </th>
                   </>
                 )}
                 
@@ -269,7 +299,6 @@ export default function Calculator() {
             </thead>
             <tbody>
               {rows.map((row) => {
-                // Safety Checks for calculations
                 const safeFactoryPrice = parseFloat(row.factoryPrice) || 0;
                 const safeTransPercent = parseFloat(row.transPercent) || 0;
                 const safeWorkCost = parseFloat(row.workCost) || 0;
@@ -278,83 +307,57 @@ export default function Calculator() {
 
                 const transportAmt = safeFactoryPrice * (safeTransPercent / 100);
                 const unitInternalCost = safeFactoryPrice + transportAmt + safeWorkCost;
-                const basePricePlus20 = unitInternalCost * 1.20;
+                
+                // Dynamic Base Calculation using state variable
+                const basePriceDynamic = unitInternalCost * (1 + baseMarginPercent / 100);
+                
                 const rowFinalTotal = safeQuotedPrice * safeQty;
 
                 return (
                   <tr key={row.id} style={{ borderBottom: '1px solid #eee' }}>
                     
-                    {/* DESCRIPTION */}
                     <td style={{ padding: '10px', fontSize: '14px' }}>
-                      {isClientMode ? (
-                        <span style={{color: 'black'}}>{row.name}</span>
-                      ) : (
-                        <input 
-                          type="text" 
-                          value={row.name} 
-                          onChange={(e) => updateRow(row.id, 'name', e.target.value)}
-                          style={{ width: '100%', border: '1px solid #ccc', padding: '5px' }}
-                        />
-                      )}
+                      {isClientMode ? <span style={{color: 'black'}}>{row.name}</span> : 
+                        <input type="text" value={row.name} onChange={(e) => updateRow(row.id, 'name', e.target.value)} style={{ width: '100%', border: '1px solid #ccc', padding: '5px' }} />
+                      }
                     </td>
 
-                    {/* QTY */}
                     <td style={{ padding: '10px' }}>
-                      {isClientMode ? (
-                        <span style={{fontWeight:'bold'}}>{row.qty}</span>
-                      ) : (
-                        <input type="number" value={row.qty} onChange={(e) => updateRow(row.id, 'qty', e.target.value)} 
-                          style={{ width: '50px', fontWeight: 'bold', textAlign:'center', border:'1px solid #ccc' }} />
-                      )}
+                      {isClientMode ? <span style={{fontWeight:'bold'}}>{row.qty}</span> : 
+                        <input type="number" value={row.qty} onChange={(e) => updateRow(row.id, 'qty', e.target.value)} style={{ width: '50px', fontWeight: 'bold', textAlign:'center', border:'1px solid #ccc' }} />
+                      }
                     </td>
                     
-                    {/* INTERNAL DATA (Editable!) */}
                     {!isClientMode && (
                       <>
                         <td style={{ padding: '10px', background:'#f0fbff', borderLeft:'1px solid #eee' }}>
-                            <input type="number" value={row.factoryPrice} onChange={(e) => updateRow(row.id, 'factoryPrice', e.target.value)} 
-                            style={{ width: '60px', background:'white', border:'1px solid #81d4fa', padding:'4px' }} />
+                            <input type="number" value={row.factoryPrice} onChange={(e) => updateRow(row.id, 'factoryPrice', e.target.value)} style={{ width: '60px', background:'white', border:'1px solid #81d4fa', padding:'4px' }} />
                         </td>
-                        
                         <td style={{ padding: '10px', background:'#f0fbff' }}>
-                            <input type="number" value={row.transPercent} onChange={(e) => updateRow(row.id, 'transPercent', e.target.value)} 
-                            style={{ width: '40px', background:'white', border:'1px solid #81d4fa', padding:'4px', textAlign:'center' }} />
+                            <input type="number" value={row.transPercent} onChange={(e) => updateRow(row.id, 'transPercent', e.target.value)} style={{ width: '40px', background:'white', border:'1px solid #81d4fa', padding:'4px', textAlign:'center' }} />
                         </td>
-
                         <td style={{ padding: '10px', color:'#999', fontSize:'12px' }}>{transportAmt.toFixed(0)}</td>
-                        
                         <td style={{ padding: '10px', background:'#f0fbff' }}>
-                            <input type="number" value={row.workCost} onChange={(e) => updateRow(row.id, 'workCost', e.target.value)} 
-                            style={{ width: '50px', background:'white', border:'1px solid #81d4fa', padding:'4px' }} />
+                            <input type="number" value={row.workCost} onChange={(e) => updateRow(row.id, 'workCost', e.target.value)} style={{ width: '50px', background:'white', border:'1px solid #81d4fa', padding:'4px' }} />
                         </td>
-
                         <td style={{ padding: '10px', background: '#f9f9f9', color:'#555' }}>{unitInternalCost.toFixed(0)}</td>
+                        
+                        {/* DYNAMIC BASE CELL */}
                         <td style={{ padding: '10px', background: '#fff3e0', fontWeight: 'bold', color: '#e65100', borderLeft:'1px solid #eee' }}>
-                          {basePricePlus20.toFixed(0)}
+                          {basePriceDynamic.toFixed(0)}
                         </td>
                       </>
                     )}
                     
-                    {/* QUOTED PRICE */}
                     <td style={{ padding: '10px' }}>
-                      {isClientMode ? (
-                        <span>₹{safeQuotedPrice.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-                      ) : (
-                        <input type="number" value={row.quotedUnitPrice} onChange={(e) => updateRow(row.id, 'quotedUnitPrice', e.target.value)}
-                          style={{ width: '90px', padding:'5px', fontWeight: 'bold', color: '#007bff', border: '1px solid #007bff', borderRadius: '4px' }} 
-                        />
-                      )}
+                      {isClientMode ? <span>₹{safeQuotedPrice.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span> : 
+                        <input type="number" value={row.quotedUnitPrice} onChange={(e) => updateRow(row.id, 'quotedUnitPrice', e.target.value)} style={{ width: '90px', padding:'5px', fontWeight: 'bold', color: '#007bff', border: '1px solid #007bff', borderRadius: '4px' }} />
+                      }
                     </td>
-
                     <td style={{ padding: '10px', fontWeight: 'bold', color: '#0056b3', fontSize:'15px' }}>
                       ₹{rowFinalTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </td>
-                    
-                    {!isClientMode && (
-                      <td>
-                        <button onClick={() => removeRow(row.id)} style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold' }}>×</button>
-                      </td>
-                    )}
+                    {!isClientMode && <td><button onClick={() => removeRow(row.id)} style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer', fontWeight: 'bold' }}>×</button></td>}
                   </tr>
                 );
               })}
@@ -363,7 +366,6 @@ export default function Calculator() {
           {rows.length === 0 && <div style={{padding:'30px', textAlign:'center', color:'#888'}}>Search or Add Blank Row to begin.</div>}
         </div>
 
-        {/* FOOTER */}
         <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-end' }}>
           <div style={{ textAlign: 'right', borderTop: '2px solid #333', paddingTop: '10px' }}>
             <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#0056b3' }}>TOTAL PROJECT VALUE</div>
@@ -372,7 +374,6 @@ export default function Calculator() {
             </div>
           </div>
         </div>
-
       </div>
 
       {/* INTERNAL CONTROLS */}
@@ -382,11 +383,19 @@ export default function Calculator() {
             <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#666' }}>TOTAL INTERNAL COST</div>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#555' }}>₹{grandTotalCost.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
           </div>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#28a745' }}>REALIZED MARGIN</div>
-            <div style={{ fontSize: '32px', fontWeight: 'bold', color: '#28a745' }}>{realizedMargin.toFixed(1)}%</div>
-            <div style={{ fontSize: '14px', color: '#28a745' }}>Profit: ₹{grandTotalProfit.toLocaleString('en-IN', {maximumFractionDigits:0})}</div>
+          
+          {/* NEW: BASE MARGIN INPUT */}
+          <div style={{ textAlign: 'center', padding:'0 20px', borderLeft:'1px solid #ccc', borderRight:'1px solid #ccc' }}>
+            <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#e65100' }}>BASE MARGIN %</div>
+            <input 
+                type="number" 
+                value={baseMarginPercent} 
+                onChange={(e) => handleBaseMarginChange(e.target.value)}
+                style={{ fontSize: '28px', padding: '5px', width: '100px', textAlign: 'center', border: '2px solid #e65100', borderRadius: '4px', color:'#e65100', fontWeight:'bold' }}
+            />
+            <div style={{fontSize:'12px', color:'#888'}}>Change this to update all prices</div>
           </div>
+
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#0056b3' }}>GLOBAL PRICE OVERRIDE</div>
             <input 
