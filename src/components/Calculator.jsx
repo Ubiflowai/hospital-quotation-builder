@@ -9,9 +9,9 @@ export default function Calculator() {
   const [grandTotalProfit, setGrandTotalProfit] = useState(0);
   const [grandProjectValue, setGrandProjectValue] = useState(0);
   const [baseMarginPercent, setBaseMarginPercent] = useState(20); 
-  const [gstPercent, setGstPercent] = useState(18); // Default GST 18%
+  const [gstPercent, setGstPercent] = useState(18); // GST 18%
 
-  // --- STATE: QUOTATION DETAILS (FROM PDF) ---
+  // --- STATE: QUOTATION METADATA ---
   const [quoteNo, setQuoteNo] = useState("397");
   const [quoteDate, setQuoteDate] = useState(new Date().toISOString().slice(0,10));
   const [buyerName, setBuyerName] = useState("Govt Medical College Hospital Thrissur");
@@ -32,7 +32,6 @@ export default function Calculator() {
     const product = productCatalog.find(p => p.id === parseInt(productId));
     if (!product) return;
 
-    // Logic: Cost + Margin
     const transPercent = 2; 
     const transCost = product.factoryPrice * (transPercent / 100);
     const workCost = product.fitting + product.saddle + product.work;
@@ -42,8 +41,8 @@ export default function Calculator() {
     const newRow = {
       id: Date.now(),
       name: product.name,
-      hsn: "9018",       // New Field: Default HSN
-      unit: "nos",       // New Field: Default Unit
+      hsn: "9018",       
+      unit: "nos",       
       qty: 1,
       factoryPrice: product.factoryPrice, 
       transPercent: transPercent,         
@@ -78,8 +77,10 @@ export default function Calculator() {
     const updatedRows = rows.map(row => {
       if (row.id === id) {
         let finalVal = value;
-        // Keep text fields as text
-        if (field !== 'name' && field !== 'hsn' && field !== 'unit') {
+        // Keep text fields as text, numbers as numbers
+        if (['name', 'hsn', 'unit'].includes(field)) {
+            finalVal = value;
+        } else {
             if (value === '') { finalVal = ''; } 
             else { finalVal = parseFloat(value); }
         }
@@ -175,7 +176,7 @@ export default function Calculator() {
           filename: `${safeTitle}.pdf`,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } // Changed to Portrait for official look
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
         };
 
         html2pdf().set(opt).from(element).save().then(() => {
@@ -189,7 +190,7 @@ export default function Calculator() {
     : [];
 
   return (
-    <div style={{ minWidth: '1000px', margin: '0 auto', fontFamily: 'Arial, sans-serif', paddingBottom: '100px', color: 'black' }}>
+    <div style={{ minWidth: '1300px', margin: '0 auto', fontFamily: 'Arial, sans-serif', paddingBottom: '100px', color: 'black' }}>
       
       <style>{`
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -240,7 +241,7 @@ export default function Calculator() {
       )}
 
       {/* --- THE PDF DOCUMENT --- */}
-      <div ref={pdfRef} style={{ background: 'white', padding: '40px', color: 'black', maxWidth:'1000px', margin:'0 auto', border:'1px solid #eee' }}>
+      <div ref={pdfRef} style={{ background: 'white', padding: '40px', color: 'black', maxWidth: isClientMode ? '1000px' : '100%', margin:'0 auto', border:'1px solid #eee' }}>
         
         {/* 1. LETTERHEAD */}
         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom:'2px solid #000', paddingBottom:'20px', marginBottom:'20px' }}>
@@ -301,58 +302,86 @@ export default function Calculator() {
             <thead>
               <tr style={{ background: '#333', color: 'white', textAlign: 'left' }}>
                 <th style={{ padding: '8px', border:'1px solid #000' }}>SI</th>
-                <th style={{ padding: '8px', border:'1px solid #000', width:'40%' }}>Description of Goods</th>
+                <th style={{ padding: '8px', border:'1px solid #000', width:'30%' }}>Description</th>
                 <th style={{ padding: '8px', border:'1px solid #000' }}>HSN</th>
                 <th style={{ padding: '8px', border:'1px solid #000' }}>Qty</th>
                 <th style={{ padding: '8px', border:'1px solid #000' }}>Unit</th>
                 
-                {!isClientMode && <th style={{ padding: '8px', background:'#555' }}>Internal Info</th>}
+                {/* --- INTERNAL COLUMNS (Hidden in PDF) --- */}
+                {!isClientMode && (
+                  <>
+                    <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>Fact.</th>
+                    <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>Trn%</th>
+                    <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>TrnAmt</th>
+                    <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>Work</th>
+                    <th style={{ padding: '8px', background:'#90a4ae', color:'white' }}>Int.Cost</th>
+                    <th style={{ padding: '8px', background:'#ffcc80', color:'black' }}>Base+{baseMarginPercent.toFixed(0)}%</th>
+                  </>
+                )}
                 
                 <th style={{ padding: '8px', border:'1px solid #000', textAlign:'right' }}>Rate</th>
                 <th style={{ padding: '8px', border:'1px solid #000', textAlign:'right' }}>Amount</th>
+                
+                {/* PROFIT COLUMN */}
+                {!isClientMode && <th style={{ padding: '8px', background:'#a5d6a7' }}>Profit</th>}
+                
                 {!isClientMode && <th style={{ padding: '8px' }}></th>}
               </tr>
             </thead>
             <tbody>
               {rows.map((row, index) => {
-                const rowFinalTotal = row.quotedUnitPrice * row.qty;
+                const safeFactoryPrice = parseFloat(row.factoryPrice) || 0;
+                const safeTransPercent = parseFloat(row.transPercent) || 0;
+                const safeWorkCost = parseFloat(row.workCost) || 0;
+                const safeQty = parseFloat(row.qty) || 0;
+                const safeQuotedPrice = parseFloat(row.quotedUnitPrice) || 0;
+
+                const transportAmt = safeFactoryPrice * (safeTransPercent / 100);
+                const unitInternalCost = safeFactoryPrice + transportAmt + safeWorkCost;
+                const basePriceDynamic = unitInternalCost * (1 + baseMarginPercent / 100);
+                const rowFinalTotal = safeQuotedPrice * safeQty;
+                const rowProfit = rowFinalTotal - (unitInternalCost * safeQty);
+
                 return (
                   <tr key={row.id}>
                     <td style={{ padding: '8px', border:'1px solid #ccc', textAlign:'center' }}>{index + 1}</td>
                     
                     {/* NAME */}
                     <td style={{ padding: '8px', border:'1px solid #ccc' }}>
-                      {isClientMode ? <span>{row.name}</span> : <input type="text" value={row.name} onChange={(e) => updateRow(row.id, 'name', e.target.value)} style={{ width: '100%' }} />}
+                      {isClientMode ? <span>{row.name}</span> : <input type="text" value={row.name} onChange={(e) => updateRow(row.id, 'name', e.target.value)} style={{ width: '100%', border:'none' }} />}
                     </td>
 
                     {/* HSN */}
                     <td style={{ padding: '8px', border:'1px solid #ccc' }}>
-                      {isClientMode ? <span>{row.hsn}</span> : <input type="text" value={row.hsn} onChange={(e) => updateRow(row.id, 'hsn', e.target.value)} style={{ width: '50px' }} />}
+                      {isClientMode ? <span>{row.hsn}</span> : <input type="text" value={row.hsn} onChange={(e) => updateRow(row.id, 'hsn', e.target.value)} style={{ width: '50px', border:'none' }} />}
                     </td>
 
                     {/* QTY */}
                     <td style={{ padding: '8px', border:'1px solid #ccc', textAlign:'center' }}>
-                      {isClientMode ? <span>{row.qty}</span> : <input type="number" value={row.qty} onChange={(e) => updateRow(row.id, 'qty', e.target.value)} style={{ width: '40px' }} />}
+                      {isClientMode ? <span>{row.qty}</span> : <input type="number" value={row.qty} onChange={(e) => updateRow(row.id, 'qty', e.target.value)} style={{ width: '40px', border:'none', textAlign:'center' }} />}
                     </td>
 
                     {/* UNIT */}
                     <td style={{ padding: '8px', border:'1px solid #ccc' }}>
-                      {isClientMode ? <span>{row.unit}</span> : <input type="text" value={row.unit} onChange={(e) => updateRow(row.id, 'unit', e.target.value)} style={{ width: '40px' }} />}
+                      {isClientMode ? <span>{row.unit}</span> : <input type="text" value={row.unit} onChange={(e) => updateRow(row.id, 'unit', e.target.value)} style={{ width: '40px', border:'none' }} />}
                     </td>
                     
-                    {/* INTERNAL INFO (HIDDEN IN PDF) */}
+                    {/* INTERNAL COLUMNS */}
                     {!isClientMode && (
-                        <td style={{ padding: '8px', background:'#eee', fontSize:'10px' }}>
-                            Cost: {row.factoryPrice}<br/>
-                            Trans: {row.transPercent}%<br/>
-                            Work: {row.workCost}
-                        </td>
+                        <>
+                            <td style={{ padding: '5px', background:'#f0fbff' }}><input type="number" value={row.factoryPrice} onChange={(e) => updateRow(row.id, 'factoryPrice', e.target.value)} style={{width:'50px'}} /></td>
+                            <td style={{ padding: '5px', background:'#f0fbff' }}><input type="number" value={row.transPercent} onChange={(e) => updateRow(row.id, 'transPercent', e.target.value)} style={{width:'30px'}} /></td>
+                            <td style={{ padding: '5px', color:'#777' }}>{transportAmt.toFixed(0)}</td>
+                            <td style={{ padding: '5px', background:'#f0fbff' }}><input type="number" value={row.workCost} onChange={(e) => updateRow(row.id, 'workCost', e.target.value)} style={{width:'40px'}} /></td>
+                            <td style={{ padding: '5px', background:'#cfd8dc', fontWeight:'bold' }}>{unitInternalCost.toFixed(0)}</td>
+                            <td style={{ padding: '5px', background:'#ffe0b2', fontWeight:'bold' }}>{basePriceDynamic.toFixed(0)}</td>
+                        </>
                     )}
                     
                     {/* RATE */}
                     <td style={{ padding: '8px', border:'1px solid #ccc', textAlign:'right' }}>
-                      {isClientMode ? <span>{row.quotedUnitPrice.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span> : 
-                        <input type="number" value={row.quotedUnitPrice} onChange={(e) => updateRow(row.id, 'quotedUnitPrice', e.target.value)} style={{ width: '70px', textAlign:'right' }} />
+                      {isClientMode ? <span>{safeQuotedPrice.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span> : 
+                        <input type="number" value={row.quotedUnitPrice} onChange={(e) => updateRow(row.id, 'quotedUnitPrice', e.target.value)} style={{ width: '70px', textAlign:'right', border:'none', fontWeight:'bold', color:'#0d47a1' }} />
                       }
                     </td>
 
@@ -361,6 +390,13 @@ export default function Calculator() {
                       {rowFinalTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </td>
                     
+                    {/* PROFIT */}
+                    {!isClientMode && (
+                        <td style={{ padding: '8px', background:'#e8f5e9', color: rowProfit < 0 ? 'red' : 'green', fontWeight:'bold' }}>
+                            {rowProfit.toLocaleString('en-IN', {maximumFractionDigits:0})}
+                        </td>
+                    )}
+
                     {!isClientMode && <td style={{border:'none'}}><button onClick={() => removeRow(row.id)} style={{ color: 'red' }}>×</button></td>}
                   </tr>
                 );
