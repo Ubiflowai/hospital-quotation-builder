@@ -5,11 +5,16 @@ import html2pdf from 'html2pdf.js';
 export default function Calculator() {
   // --- STATE: CALCULATIONS ---
   const [rows, setRows] = useState([]);
+  
+  // Calculated Totals
   const [grandTotalCost, setGrandTotalCost] = useState(0);
   const [grandTotalProfit, setGrandTotalProfit] = useState(0);
   const [grandProjectValue, setGrandProjectValue] = useState(0);
+  
+  // The Driver Percentage
   const [baseMarginPercent, setBaseMarginPercent] = useState(20); 
-  const [gstPercent, setGstPercent] = useState(18); // GST 18%
+  
+  const [gstPercent, setGstPercent] = useState(18);
 
   // --- STATE: QUOTATION METADATA ---
   const [quoteNo, setQuoteNo] = useState("397");
@@ -46,7 +51,7 @@ export default function Calculator() {
     const workCost = product.fitting + product.saddle + product.work;
     const unitInternalCost = product.factoryPrice + transCost + workCost;
     
-    // Calculate price based on CURRENT global margin
+    // Apply current global margin to new item
     const defaultPrice = unitInternalCost * (1 + baseMarginPercent / 100);
 
     const newRow = {
@@ -84,6 +89,7 @@ export default function Calculator() {
     setRows(rows.filter(r => r.id !== id));
   };
 
+  // General Update Row
   const updateRow = (id, field, value) => {
     const updatedRows = rows.map(row => {
       if (row.id === id) {
@@ -94,16 +100,30 @@ export default function Calculator() {
             if (value === '') { finalVal = ''; } 
             else { finalVal = parseFloat(value); }
         }
-        
-        // If updating internal cost factors, auto-update the quoted price based on margin
-        // If updating quotedUnitPrice manually, we break the margin link for this specific action 
-        // (though global handlers will reset it).
-        
         return { ...row, [field]: finalVal };
       }
       return row;
     });
     setRows(updatedRows);
+  };
+
+  // --- SPECIAL: HANDLE ROW AMOUNT CHANGE ---
+  // When user types in "Amount", we reverse calc the Unit Price (Rate)
+  // This effectively changes the margin for this specific row
+  const handleRowAmountChange = (id, newAmountVal) => {
+    const safeAmount = parseFloat(newAmountVal);
+    const updatedRows = rows.map(row => {
+        if (row.id === id) {
+            const safeQty = parseFloat(row.qty) || 1;
+            // Reverse Calc Rate: Rate = Amount / Qty
+            const newRate = safeAmount / safeQty;
+            return { ...row, quotedUnitPrice: newRate };
+        }
+        return row;
+    });
+    setRows(updatedRows);
+    // Note: The useEffect below will catch this change and update the 
+    // global BaseMarginPercent to reflect the new "Mixed Average" margin.
   };
 
   // --- 2. CALCULATION ENGINE ---
@@ -122,20 +142,34 @@ export default function Calculator() {
 
     setGrandTotalCost(totalCostSum);
     setGrandProjectValue(totalProjectValueSum);
-    setGrandTotalProfit(totalProjectValueSum - totalCostSum);
+    
+    const profit = totalProjectValueSum - totalCostSum;
+    setGrandTotalProfit(profit);
 
-  }, [rows]);
+    // Sync Base Margin Percent to reality
+    // If costs exist, calculate what the actual margin % is currently
+    if (totalCostSum > 0) {
+        const realizedMargin = (profit / totalCostSum) * 100;
+        // We limit decimal places for the state to avoid infinite rendering loops with high precision floats
+        setBaseMarginPercent(parseFloat(realizedMargin.toFixed(2)));
+    } else {
+        setBaseMarginPercent(0);
+    }
 
-  // --- 3. BIDIRECTIONAL HANDLERS ---
+  }, [rows]); 
+  // Dependency on 'rows' means any change to qty, rate, or cost triggers this.
 
-  // A. CHANGE MARGIN -> UPDATES PRICES & TOTAL
+  // --- 3. GLOBAL HANDLERS ---
+
+  // A. CHANGE MARGIN % DIRECTLY -> FORCE ALL ROWS TO THIS MARGIN
   const handleBaseMarginChange = (newVal) => {
     const newMargin = parseFloat(newVal);
-    // Allow empty string for typing, default to 0 for math
     const safeMargin = isNaN(newMargin) ? 0 : newMargin;
     
+    // We set state immediately so the input reflects what user typed
     setBaseMarginPercent(safeMargin);
 
+    // Apply this margin to ALL rows
     const updatedRows = rows.map(row => {
         const unitInternalCost = getInternalCost(row);
         const newPrice = unitInternalCost * (1 + safeMargin / 100);
@@ -144,26 +178,23 @@ export default function Calculator() {
     setRows(updatedRows);
   };
 
-  // B. CHANGE TOTAL -> UPDATES MARGIN & PRICES
-  const handleGlobalValueChange = (newValue) => {
+  // B. CHANGE GRAND TOTAL -> REVERSE CALC MARGIN & APPLY TO ALL
+  const handleGlobalTotalChange = (newValue) => {
     const newGlobalTotal = parseFloat(newValue) || 0;
     
-    // 1. Avoid division by zero if no costs exist
     if (grandTotalCost === 0) {
         setGrandProjectValue(newGlobalTotal);
         return;
     }
 
-    // 2. Reverse Engineer the Margin
-    // Total = Cost * (1 + Margin/100)
-    // Margin = ((Total / Cost) - 1) * 100
+    // 1. Calculate the Margin needed to achieve this Total
+    // Margin % = ((Total / Cost) - 1) * 100
     const newImpliedMargin = ((newGlobalTotal / grandTotalCost) - 1) * 100;
     
-    setBaseMarginPercent(newImpliedMargin);
-    setGrandProjectValue(newGlobalTotal); // Optimistic update
+    setBaseMarginPercent(parseFloat(newImpliedMargin.toFixed(2)));
+    setGrandProjectValue(newGlobalTotal);
 
-    // 3. Update all rows to align with this new margin strictly
-    // This ensures every item contributes equally to the new total
+    // 2. Apply this new uniform margin to ALL rows
     const updatedRows = rows.map(row => {
         const unitInternalCost = getInternalCost(row);
         const newPrice = unitInternalCost * (1 + newImpliedMargin / 100);
@@ -198,7 +229,6 @@ export default function Calculator() {
     ? productCatalog.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
     : [];
 
-  // Click outside listener
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
@@ -210,7 +240,7 @@ export default function Calculator() {
   }, []);
 
   return (
-    <div style={{ minWidth: '1300px', margin: '0 auto', fontFamily: 'Arial, sans-serif', paddingBottom: '100px', color: 'black' }}>
+    <div style={{ minWidth: '1300px', margin: '0 auto', fontFamily: 'Arial, sans-serif', paddingBottom: '120px', color: 'black' }}>
        
       <style>{`
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -218,7 +248,7 @@ export default function Calculator() {
         input { font-family: inherit; }
       `}</style>
 
-      {/* --- CONTROLS HEADER (Hidden in PDF) --- */}
+      {/* --- CONTROLS HEADER --- */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '15px', background: '#e3f2fd', borderRadius: '8px' }}>
         <div>
             <h3 style={{margin:0, color:'#0d47a1'}}>Quotation Manager</h3>
@@ -233,13 +263,13 @@ export default function Calculator() {
         </div>
       </div>
 
-      {/* --- ADD ITEMS BAR (Hidden in Client Mode) --- */}
+      {/* --- ADD ITEMS BAR --- */}
       {!isClientMode && (
         <div ref={searchRef} style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ddd', position: 'relative', display:'flex', gap:'10px' }}>
           <div style={{flex: 1, position:'relative'}}>
               <input 
                 type="text"
-                placeholder="Search Database (e.g. Copper)..."
+                placeholder="Search Database..."
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
                 onFocus={() => setShowDropdown(true)}
@@ -308,10 +338,6 @@ export default function Calculator() {
                         <b style={{width:'100px'}}>Payment:</b>
                         {isClientMode ? <span>{paymentTerms}</span> : <input type="text" value={paymentTerms} onChange={(e)=>setPaymentTerms(e.target.value)} />}
                     </div>
-                    <div style={{display:'flex', marginBottom:'5px'}}>
-                        <b style={{width:'100px'}}>Delivery:</b>
-                        <span>Immediate / As Discussed</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -327,7 +353,7 @@ export default function Calculator() {
                 <th style={{ padding: '8px', border:'1px solid #000' }}>Qty</th>
                 <th style={{ padding: '8px', border:'1px solid #000' }}>Unit</th>
                 
-                {/* --- INTERNAL COLUMNS (Hidden in PDF) --- */}
+                {/* --- INTERNAL COLUMNS (Hidden in Client Mode) --- */}
                 {!isClientMode && (
                   <>
                     <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>Fact.</th>
@@ -335,28 +361,13 @@ export default function Calculator() {
                     <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>TrnAmt</th>
                     <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>Work</th>
                     <th style={{ padding: '8px', background:'#90a4ae', color:'white' }}>Int.Cost</th>
-                    
-                    {/* EDITABLE HEADER FOR MARGIN */}
-                    <th style={{ padding: '8px', background:'#ffcc80', color:'black', minWidth:'80px' }}>
-                        Base+
-                        <input 
-                            type="number" 
-                            value={baseMarginPercent} 
-                            onChange={(e) => handleBaseMarginChange(e.target.value)}
-                            onClick={(e) => e.stopPropagation()} // Prevent sort/select issues if added later
-                            style={{width:'35px', margin:'0 2px', fontWeight:'bold', background:'white', border:'1px solid #888', borderRadius:'2px', padding:'1px'}}
-                        />
-                        %
-                    </th>
                   </>
                 )}
                 
                 <th style={{ padding: '8px', border:'1px solid #000', textAlign:'right' }}>Rate</th>
-                <th style={{ padding: '8px', border:'1px solid #000', textAlign:'right' }}>Amount</th>
+                <th style={{ padding: '8px', border:'1px solid #000', textAlign:'right', width:'100px' }}>Amount</th>
                 
-                {/* PROFIT COLUMN */}
                 {!isClientMode && <th style={{ padding: '8px', background:'#a5d6a7' }}>Profit</th>}
-                
                 {!isClientMode && <th style={{ padding: '8px' }}></th>}
               </tr>
             </thead>
@@ -365,9 +376,6 @@ export default function Calculator() {
                 const unitInternalCost = getInternalCost(row);
                 const safeQty = parseFloat(row.qty) || 0;
                 const safeQuotedPrice = parseFloat(row.quotedUnitPrice) || 0;
-                
-                // For display in the "Base + %" column, we show what the price *would* be if strictly following the margin
-                const basePriceDynamic = unitInternalCost * (1 + baseMarginPercent / 100);
                 
                 const rowFinalTotal = safeQuotedPrice * safeQty;
                 const rowProfit = rowFinalTotal - (unitInternalCost * safeQty);
@@ -404,7 +412,6 @@ export default function Calculator() {
                             <td style={{ padding: '5px', color:'#777' }}>{(row.factoryPrice * (row.transPercent/100)).toFixed(0)}</td>
                             <td style={{ padding: '5px', background:'#f0fbff' }}><input type="number" value={row.workCost} onChange={(e) => updateRow(row.id, 'workCost', e.target.value)} style={{width:'40px'}} /></td>
                             <td style={{ padding: '5px', background:'#cfd8dc', fontWeight:'bold' }}>{unitInternalCost.toFixed(0)}</td>
-                            <td style={{ padding: '5px', background:'#ffe0b2', fontWeight:'bold' }}>{basePriceDynamic.toFixed(0)}</td>
                         </>
                     )}
                     
@@ -415,9 +422,19 @@ export default function Calculator() {
                       }
                     </td>
 
-                    {/* AMOUNT */}
+                    {/* AMOUNT (EDITABLE) */}
                     <td style={{ padding: '8px', border:'1px solid #ccc', textAlign:'right', fontWeight:'bold' }}>
-                      {rowFinalTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      {isClientMode ? (
+                          rowFinalTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})
+                      ) : (
+                          /* EDITABLE AMOUNT FIELD */
+                          <input 
+                            type="number" 
+                            value={rowFinalTotal.toFixed(2)} 
+                            onChange={(e) => handleRowAmountChange(row.id, e.target.value)}
+                            style={{ width: '80px', textAlign:'right', border:'none', fontWeight:'bold', color:'black', background:'transparent' }} 
+                           />
+                      )}
                     </td>
                     
                     {/* PROFIT */}
@@ -468,14 +485,14 @@ export default function Calculator() {
 
       {/* INTERNAL CONTROLS (Floating Footer) */}
       {!isClientMode && (
-        <div style={{ position:'fixed', bottom:0, left:0, right:0, background: '#333', color:'white', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ position:'fixed', bottom:0, left:0, right:0, background: '#333', color:'white', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 999 }}>
           <div>
             <div style={{ fontSize: '12px', color: '#aaa' }}>INTERNAL COST</div>
             <div style={{ fontSize: '18px', fontWeight: 'bold' }}>₹{grandTotalCost.toLocaleString('en-IN')}</div>
           </div>
           
           <div style={{ textAlign: 'center', borderLeft:'1px solid #555', borderRight:'1px solid #555', padding:'0 20px' }}>
-            <div style={{ fontSize: '12px', color: '#aaa' }}>BASE MARGIN %</div>
+            <div style={{ fontSize: '12px', color: '#aaa' }}>AVG MARGIN %</div>
             <input 
                 type="number" 
                 value={baseMarginPercent} 
@@ -490,7 +507,7 @@ export default function Calculator() {
             <input 
               type="number" 
               value={grandProjectValue.toFixed(2)} 
-              onChange={(e) => handleGlobalValueChange(e.target.value)}
+              onChange={(e) => handleGlobalTotalChange(e.target.value)}
               style={{ fontSize: '20px', width: '150px', textAlign: 'right', background:'white', color:'black', border:'none', padding:'2px 5px' }}
             />
           </div>
