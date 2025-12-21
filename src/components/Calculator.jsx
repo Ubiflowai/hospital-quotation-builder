@@ -17,7 +17,7 @@ export default function Calculator() {
   const [buyerName, setBuyerName] = useState("Govt Medical College Hospital Thrissur");
   const [buyerAddress, setBuyerAddress] = useState("Kerala, Code: 32");
   const [paymentTerms, setPaymentTerms] = useState("50% Advance");
-  
+   
   // --- VIEW MODES ---
   const [isClientMode, setIsClientMode] = useState(false); 
   const pdfRef = useRef(); 
@@ -26,6 +26,15 @@ export default function Calculator() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef(null);
+
+  // --- HELPER: CALCULATE INTERNAL COST ---
+  const getInternalCost = (row) => {
+    const safeFactoryPrice = parseFloat(row.factoryPrice) || 0;
+    const safeTransPercent = parseFloat(row.transPercent) || 0;
+    const safeWorkCost = parseFloat(row.workCost) || 0;
+    const transportAmt = safeFactoryPrice * (safeTransPercent / 100);
+    return safeFactoryPrice + transportAmt + safeWorkCost;
+  };
 
   // --- 1. ROW MANAGEMENT ---
   const addRow = (productId) => {
@@ -36,17 +45,19 @@ export default function Calculator() {
     const transCost = product.factoryPrice * (transPercent / 100);
     const workCost = product.fitting + product.saddle + product.work;
     const unitInternalCost = product.factoryPrice + transCost + workCost;
+    
+    // Calculate price based on CURRENT global margin
     const defaultPrice = unitInternalCost * (1 + baseMarginPercent / 100);
 
     const newRow = {
       id: Date.now(),
       name: product.name,
-      hsn: "9018",       
-      unit: "nos",       
+      hsn: "9018",        
+      unit: "nos",        
       qty: 1,
       factoryPrice: product.factoryPrice, 
-      transPercent: transPercent,         
-      workCost: workCost,                 
+      transPercent: transPercent,          
+      workCost: workCost,                  
       quotedUnitPrice: parseFloat(defaultPrice.toFixed(2)), 
     };
     setRows([...rows, newRow]);
@@ -77,13 +88,17 @@ export default function Calculator() {
     const updatedRows = rows.map(row => {
       if (row.id === id) {
         let finalVal = value;
-        // Keep text fields as text, numbers as numbers
         if (['name', 'hsn', 'unit'].includes(field)) {
             finalVal = value;
         } else {
             if (value === '') { finalVal = ''; } 
             else { finalVal = parseFloat(value); }
         }
+        
+        // If updating internal cost factors, auto-update the quoted price based on margin
+        // If updating quotedUnitPrice manually, we break the margin link for this specific action 
+        // (though global handlers will reset it).
+        
         return { ...row, [field]: finalVal };
       }
       return row;
@@ -91,31 +106,16 @@ export default function Calculator() {
     setRows(updatedRows);
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   // --- 2. CALCULATION ENGINE ---
   useEffect(() => {
     let totalCostSum = 0;
     let totalProjectValueSum = 0;
 
     rows.forEach(row => {
-      const safeFactoryPrice = parseFloat(row.factoryPrice) || 0;
-      const safeTransPercent = parseFloat(row.transPercent) || 0;
-      const safeWorkCost = parseFloat(row.workCost) || 0;
+      const unitInternalCost = getInternalCost(row);
       const safeQty = parseFloat(row.qty) || 0;
       const safeQuotedPrice = parseFloat(row.quotedUnitPrice) || 0;
-
-      const transportAmt = safeFactoryPrice * (safeTransPercent / 100);
-      const unitInternalCost = safeFactoryPrice + transportAmt + safeWorkCost;
-      
+       
       totalCostSum += unitInternalCost * safeQty;
       totalProjectValueSum += safeQuotedPrice * safeQty;
     });
@@ -126,44 +126,53 @@ export default function Calculator() {
 
   }, [rows]);
 
-  const handleGlobalValueChange = (newValue) => {
-    const newGlobalTotal = parseFloat(newValue) || 0;
-    if (grandProjectValue === 0 || rows.length === 0) {
-        setGrandProjectValue(newGlobalTotal);
-        return;
-    }
-    const ratio = newGlobalTotal / grandProjectValue;
-    const updatedRows = rows.map(row => ({
-        ...row,
-        quotedUnitPrice: parseFloat((row.quotedUnitPrice * ratio).toFixed(2))
-    }));
-    setRows(updatedRows);
-    
-    // Update margin logic
-    const newProfit = newGlobalTotal - grandTotalCost;
-    if(grandTotalCost > 0) {
-        setBaseMarginPercent((newProfit / grandTotalCost) * 100);
-    }
-  };
+  // --- 3. BIDIRECTIONAL HANDLERS ---
 
+  // A. CHANGE MARGIN -> UPDATES PRICES & TOTAL
   const handleBaseMarginChange = (newVal) => {
-    const newMargin = parseFloat(newVal) || 0;
-    setBaseMarginPercent(newMargin);
+    const newMargin = parseFloat(newVal);
+    // Allow empty string for typing, default to 0 for math
+    const safeMargin = isNaN(newMargin) ? 0 : newMargin;
+    
+    setBaseMarginPercent(safeMargin);
 
     const updatedRows = rows.map(row => {
-        const safeFactoryPrice = parseFloat(row.factoryPrice) || 0;
-        const safeTransPercent = parseFloat(row.transPercent) || 0;
-        const safeWorkCost = parseFloat(row.workCost) || 0;
-        const transportAmt = safeFactoryPrice * (safeTransPercent / 100);
-        const unitInternalCost = safeFactoryPrice + transportAmt + safeWorkCost;
-        const newPrice = unitInternalCost * (1 + newMargin / 100);
-        
+        const unitInternalCost = getInternalCost(row);
+        const newPrice = unitInternalCost * (1 + safeMargin / 100);
         return { ...row, quotedUnitPrice: parseFloat(newPrice.toFixed(2)) };
     });
     setRows(updatedRows);
   };
 
-  // --- 3. PDF GENERATOR ---
+  // B. CHANGE TOTAL -> UPDATES MARGIN & PRICES
+  const handleGlobalValueChange = (newValue) => {
+    const newGlobalTotal = parseFloat(newValue) || 0;
+    
+    // 1. Avoid division by zero if no costs exist
+    if (grandTotalCost === 0) {
+        setGrandProjectValue(newGlobalTotal);
+        return;
+    }
+
+    // 2. Reverse Engineer the Margin
+    // Total = Cost * (1 + Margin/100)
+    // Margin = ((Total / Cost) - 1) * 100
+    const newImpliedMargin = ((newGlobalTotal / grandTotalCost) - 1) * 100;
+    
+    setBaseMarginPercent(newImpliedMargin);
+    setGrandProjectValue(newGlobalTotal); // Optimistic update
+
+    // 3. Update all rows to align with this new margin strictly
+    // This ensures every item contributes equally to the new total
+    const updatedRows = rows.map(row => {
+        const unitInternalCost = getInternalCost(row);
+        const newPrice = unitInternalCost * (1 + newImpliedMargin / 100);
+        return { ...row, quotedUnitPrice: parseFloat(newPrice.toFixed(2)) };
+    });
+    setRows(updatedRows);
+  };
+
+  // --- 4. PDF GENERATOR ---
   const handleDownloadPDF = () => {
     const wasInClientMode = isClientMode;
     if (!isClientMode) setIsClientMode(true);
@@ -189,9 +198,20 @@ export default function Calculator() {
     ? productCatalog.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
     : [];
 
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <div style={{ minWidth: '1300px', margin: '0 auto', fontFamily: 'Arial, sans-serif', paddingBottom: '100px', color: 'black' }}>
-      
+       
       <style>{`
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
@@ -315,7 +335,19 @@ export default function Calculator() {
                     <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>TrnAmt</th>
                     <th style={{ padding: '8px', background:'#e1f5fe', color:'black' }}>Work</th>
                     <th style={{ padding: '8px', background:'#90a4ae', color:'white' }}>Int.Cost</th>
-                    <th style={{ padding: '8px', background:'#ffcc80', color:'black' }}>Base+{baseMarginPercent.toFixed(0)}%</th>
+                    
+                    {/* EDITABLE HEADER FOR MARGIN */}
+                    <th style={{ padding: '8px', background:'#ffcc80', color:'black', minWidth:'80px' }}>
+                        Base+
+                        <input 
+                            type="number" 
+                            value={baseMarginPercent} 
+                            onChange={(e) => handleBaseMarginChange(e.target.value)}
+                            onClick={(e) => e.stopPropagation()} // Prevent sort/select issues if added later
+                            style={{width:'35px', margin:'0 2px', fontWeight:'bold', background:'white', border:'1px solid #888', borderRadius:'2px', padding:'1px'}}
+                        />
+                        %
+                    </th>
                   </>
                 )}
                 
@@ -330,15 +362,13 @@ export default function Calculator() {
             </thead>
             <tbody>
               {rows.map((row, index) => {
-                const safeFactoryPrice = parseFloat(row.factoryPrice) || 0;
-                const safeTransPercent = parseFloat(row.transPercent) || 0;
-                const safeWorkCost = parseFloat(row.workCost) || 0;
+                const unitInternalCost = getInternalCost(row);
                 const safeQty = parseFloat(row.qty) || 0;
                 const safeQuotedPrice = parseFloat(row.quotedUnitPrice) || 0;
-
-                const transportAmt = safeFactoryPrice * (safeTransPercent / 100);
-                const unitInternalCost = safeFactoryPrice + transportAmt + safeWorkCost;
+                
+                // For display in the "Base + %" column, we show what the price *would* be if strictly following the margin
                 const basePriceDynamic = unitInternalCost * (1 + baseMarginPercent / 100);
+                
                 const rowFinalTotal = safeQuotedPrice * safeQty;
                 const rowProfit = rowFinalTotal - (unitInternalCost * safeQty);
 
@@ -371,7 +401,7 @@ export default function Calculator() {
                         <>
                             <td style={{ padding: '5px', background:'#f0fbff' }}><input type="number" value={row.factoryPrice} onChange={(e) => updateRow(row.id, 'factoryPrice', e.target.value)} style={{width:'50px'}} /></td>
                             <td style={{ padding: '5px', background:'#f0fbff' }}><input type="number" value={row.transPercent} onChange={(e) => updateRow(row.id, 'transPercent', e.target.value)} style={{width:'30px'}} /></td>
-                            <td style={{ padding: '5px', color:'#777' }}>{transportAmt.toFixed(0)}</td>
+                            <td style={{ padding: '5px', color:'#777' }}>{(row.factoryPrice * (row.transPercent/100)).toFixed(0)}</td>
                             <td style={{ padding: '5px', background:'#f0fbff' }}><input type="number" value={row.workCost} onChange={(e) => updateRow(row.id, 'workCost', e.target.value)} style={{width:'40px'}} /></td>
                             <td style={{ padding: '5px', background:'#cfd8dc', fontWeight:'bold' }}>{unitInternalCost.toFixed(0)}</td>
                             <td style={{ padding: '5px', background:'#ffe0b2', fontWeight:'bold' }}>{basePriceDynamic.toFixed(0)}</td>
@@ -450,7 +480,7 @@ export default function Calculator() {
                 type="number" 
                 value={baseMarginPercent} 
                 onChange={(e) => handleBaseMarginChange(e.target.value)}
-                style={{ fontSize: '20px', width: '60px', textAlign: 'center', background:'black', color:'white', border:'1px solid #555' }}
+                style={{ fontSize: '20px', width: '80px', textAlign: 'center', background:'black', color:'white', border:'1px solid #555' }}
             />
             <div style={{fontSize:'11px', color:grandTotalProfit > 0 ? '#4caf50' : 'red'}}>Profit: ₹{grandTotalProfit.toLocaleString('en-IN')}</div>
           </div>
