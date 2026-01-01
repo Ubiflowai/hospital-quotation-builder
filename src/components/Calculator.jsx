@@ -25,24 +25,24 @@ export default function Calculator() {
   const [coverToAddress, setCoverToAddress] = useState("KONDOTTY.");
   const [coverSubject, setCoverSubject] = useState("New - MGPS project");
   
-  const [coverBody1, setCoverBody1] = useState("This has reference to the discussion we had with you regarding the medical gas Pipe line project.\nPlease see the attached price details for the same.");
-  const [coverBody2, setCoverBody2] = useState("We are trained by Beacon Medaes (part of Atlascopco group) India, UK and USA and have AP and NFPA certificates.\nWe follow international standards as applicable to complete our projects.");
-  const [coverBody3, setCoverBody3] = useState("After installation, commissioning and training we provide test certificate to put the MGPS system for patient use.\nWe offer you our maximum dedicated service and attention for success of the project.");
+  const [coverBody1, setCoverBody1] = useState("This has reference to the discussion we had with you regarding the medical gas Pipe line project. Please see the attached price details for the same.");
+  const [coverBody2, setCoverBody2] = useState("We are trained by Beacon Medaes (part of Atlascopco group) India, UK and USA and have AP and NFPA certificates. We follow international standards as applicable to complete our projects.");
+  const [coverBody3, setCoverBody3] = useState("After installation, commissioning and training we provide test certificate to put the MGPS system for patient use. We offer you our maximum dedicated service and attention for success of the project.");
 
   // Terms Content
   const [termTaxes, setTermTaxes] = useState("GST 18% will be Extra as applicable as per Govt norms at the time of billing.");
-  const [termSupply, setTermSupply] = useState("The normal completion period is approximately 2-3 months from the date of receipt of technically and commercially confirmed clear order along with advance payment.\nThe completion date may vary due to delay in Civil and electrical works related to MGPS.\nDelay in manufacturing of goods, delay in delivery resulting from any cause beyond the company’s reasonable control, order/instructions of any govt authority, acts of God or military authority.");
+  const [termSupply, setTermSupply] = useState("The normal completion period is approximately 2-3 months from the date of receipt of technically and commercially confirmed clear order along with advance payment. The completion date may vary due to delay in Civil and electrical works related to MGPS. Delay in manufacturing of goods, delay in delivery resulting from any cause beyond the company’s reasonable control, order/instructions of any govt authority, acts of God or military authority.");
   const [termWarranty, setTermWarranty] = useState("All our installations and supplies would carry a warranty for 12 months from the date of installation.");
-  const [termSupport, setTermSupport] = useState("We have trained Service Engineers to give service support for the customers.\nWe will be giving training for the concerned staff. After warranty period, customer can enter in Annual Maintenance Contract with the company.\nAMC/CMC details attached with Quotation.");
-  const [termPayment, setTermPayment] = useState("50% advance and 40% at the time of installation, 10% after installation.\nAll the related Electrical and Civil works should be completed by the hospital authority.\nA safe room with door should be provided for material storage.\nThe billing will be made on the basis of actual materials used to complete the project.");
+  const [termSupport, setTermSupport] = useState("We have trained Service Engineers to give service support for the customers. We will be giving training for the concerned staff. After warranty period, customer can enter in Annual Maintenance Contract with the company. AMC/CMC details attached with Quotation.");
+  const [termPayment, setTermPayment] = useState("50% advance and 40% at the time of installation, 10% after installation. All the related Electrical and Civil works should be completed by the hospital authority. A safe room with door should be provided for material storage. The billing will be made on the basis of actual materials used to complete the project.");
 
   const [signatoryName, setSignatoryName] = useState("Ahammad adil");
   const [signatoryPhone, setSignatoryPhone] = useState("09388774401");
 
-  // --- VIEW STATE (UPDATED FOR TABS) ---
+  // --- VIEW STATE ---
   const [isClientMode, setIsClientMode] = useState(false);
   const [activeTab, setActiveTab] = useState('cover'); // 'cover' or 'quote'
-  const [isPdfGenerating, setIsPdfGenerating] = useState(false); // New state to force show all pages during PDF
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   
   const pdfRef = useRef();
   const [searchTerm, setSearchTerm] = useState('');
@@ -122,7 +122,6 @@ export default function Calculator() {
     setRows([...rows, calculateRow(newRowRaw, baseMarginPercent)]);
     setSearchTerm('');
     setShowDropdown(false);
-    // Auto switch to quote tab when adding items so user sees it
     setActiveTab('quote');
   };
 
@@ -206,28 +205,25 @@ export default function Calculator() {
     });
   }
 
-  // --- PDF GENERATION ---
+  // --- PDF GENERATION (UPDATED FOR MARGINS) ---
   const handleDownloadPDF = () => {
-    // 1. Force both pages to be visible for the PDF engine
     setIsPdfGenerating(true);
-    // 2. Hide inputs (clean look)
     const wasInClientMode = isClientMode;
     if (!isClientMode) setIsClientMode(true);
 
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
-            margin: [10, 10, 10, 10], 
+            margin: [5, 5, 5, 5], // Updated: Compact margins
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 2, useCORS: true }, 
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak: { mode: ['css', 'legacy'] } 
         }).from(element).save().then(() => {
-             // 3. Revert back to tab view after download
              setIsPdfGenerating(false);
              if (!wasInClientMode) setIsClientMode(false);
         });
-    }, 1000); // Increased delay slightly to ensure DOM renders
+    }, 1000);
   };
 
   // --- STYLES ---
@@ -241,23 +237,17 @@ export default function Calculator() {
       fontFamily: 'inherit', fontSize: 'inherit', padding: '2px', resize: 'vertical',
       minHeight: '20px'
   };
-  const sectionTitleStyle = { fontSize: '12px', fontWeight: 'bold', textDecoration: 'underline', marginTop: '10px', marginBottom: '5px' };
+  const sectionTitleStyle = { fontSize: '10px', fontWeight: 'bold', textDecoration: 'underline', marginTop: '6px', marginBottom: '2px' };
 
-  // Helper: Top Header (Logo & Address)
+  // --- UPDATED HEADER (Uses Image) ---
   const DocumentHeader = () => (
-    <div style={{ borderBottom: '2px solid #555', paddingBottom: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-            <h1 style={{ margin: '0', color: '#0056b3', fontSize: '20px', fontWeight: 'bold' }}>UNITED BIOMEDICAL SERVICES</h1>
-            <p style={{ fontSize: '10px', color: '#444', margin: '5px 0 0 0', lineHeight: '1.3' }}>
-                21/571 - United Building, 6/2, Velliparamba P.O<br/>
-                Kozhikode, Kerala, INDIA - 673008.<br/>
-                Phone +91 495 2301999, +91 9388774400, +91 9388774402
-            </p>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-             {/* Logo Placeholder */}
-             <div style={{ width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#999', fontWeight: 'bold', marginLeft:'auto' }}>LOGO</div>
-        </div>
+    <div style={{ marginBottom: '10px', textAlign: 'center' }}>
+      {/* Ensure you put the file 'header.png' in your project's PUBLIC folder */}
+      <img 
+        src="/header.png" 
+        alt="United Biomedical Services" 
+        style={{ width: '100%', height: 'auto', maxHeight: '120px', objectFit: 'contain' }} 
+      />
     </div>
   );
 
@@ -271,34 +261,11 @@ export default function Calculator() {
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #eee', paddingBottom:'10px'}}>
              <h2 style={{ margin: 0, color: '#2c3e50' }}>Quotation Manager</h2>
              
-             {/* --- NEW TAB BUTTONS --- */}
              <div style={{ display:'flex', gap:'10px' }}>
-                 <button 
-                    onClick={() => setActiveTab('cover')}
-                    style={{ 
-                        padding: '10px 20px', 
-                        cursor: 'pointer', 
-                        borderRadius: '20px', 
-                        fontWeight: 'bold', 
-                        border: 'none',
-                        background: activeTab === 'cover' ? '#007bff' : '#e2e6ea',
-                        color: activeTab === 'cover' ? 'white' : '#495057',
-                        boxShadow: activeTab === 'cover' ? '0 2px 5px rgba(0,123,255,0.4)' : 'none'
-                    }}>
+                 <button onClick={() => setActiveTab('cover')} style={{ padding: '10px 20px', cursor: 'pointer', borderRadius: '20px', fontWeight: 'bold', border: 'none', background: activeTab === 'cover' ? '#007bff' : '#e2e6ea', color: activeTab === 'cover' ? 'white' : '#495057', boxShadow: activeTab === 'cover' ? '0 2px 5px rgba(0,123,255,0.4)' : 'none' }}>
                     1. Edit Cover Letter
                  </button>
-                 <button 
-                    onClick={() => setActiveTab('quote')}
-                    style={{ 
-                        padding: '10px 20px', 
-                        cursor: 'pointer', 
-                        borderRadius: '20px', 
-                        fontWeight: 'bold', 
-                        border: 'none',
-                        background: activeTab === 'quote' ? '#007bff' : '#e2e6ea',
-                        color: activeTab === 'quote' ? 'white' : '#495057',
-                        boxShadow: activeTab === 'quote' ? '0 2px 5px rgba(0,123,255,0.4)' : 'none'
-                    }}>
+                 <button onClick={() => setActiveTab('quote')} style={{ padding: '10px 20px', cursor: 'pointer', borderRadius: '20px', fontWeight: 'bold', border: 'none', background: activeTab === 'quote' ? '#007bff' : '#e2e6ea', color: activeTab === 'quote' ? 'white' : '#495057', boxShadow: activeTab === 'quote' ? '0 2px 5px rgba(0,123,255,0.4)' : 'none' }}>
                     2. Edit Quotation
                  </button>
              </div>
@@ -306,7 +273,6 @@ export default function Calculator() {
 
         {/* BOTTOM ROW: GLOBAL SETTINGS */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-             
              {!isClientMode ? (
                  <div style={{ display: 'flex', alignItems: 'center', background: '#fff3cd', padding: '5px 15px', borderRadius: '20px', border:'1px solid #ffeeba' }}>
                     <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#856404', marginRight: '10px' }}>Copper Market Rate:</span>
@@ -352,94 +318,98 @@ export default function Calculator() {
       )}
 
       {/* ===================================================================================== */}
-      {/* PDF DOCUMENT WRAPPER                                                                */}
+      {/* PDF DOCUMENT WRAPPER                                                                  */}
       {/* ===================================================================================== */}
       
-      <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', boxShadow: '0 5px 30px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
+      <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', boxShadow: '0 5px 30px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
         
-        {/* ======================= PAGE 1: COVERING LETTER ======================= */}
-        {/* Logic: Show if Tab is Cover OR if we are currently Generating a PDF */}
-        <div className="page-1" style={{ fontSize: '11pt', lineHeight: '1.4', color: '#000', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
+        {/* ======================= PAGE 1: COVERING LETTER (COMPACT) ======================= */}
+        <div className="page-1" style={{ fontSize: '10pt', lineHeight: '1.2', color: '#000', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
             
             <DocumentHeader />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontWeight: 'bold' }}>
-                <div>
-                    Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '150px' }} />
+            {/* Reference Line - Compact */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: 'bold', fontSize: '10pt' }}>
+                <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '150px', fontSize: 'inherit' }} /></div>
+                <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '100px', textAlign: 'right', fontSize: 'inherit' }} /></div>
+            </div>
+
+            {/* To Section - Compact */}
+            <div style={{ marginBottom: '8px' }}>
+                <div style={{fontWeight:'bold'}}>TO,</div>
+                <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...editableStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...editableStyle, border:'none', padding:'0' }} />
+            </div>
+
+            <div style={{ marginBottom: '8px' }}>Dear Sir,</div>
+
+            {/* Subject - Compact */}
+            <div style={{ marginBottom: '8px', fontWeight: 'bold', textDecoration:'underline' }}>
+                SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', width: '85%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
+            </div>
+
+            {/* BODY PARAGRAPHS - Removed minHeights to save space */}
+            <div style={{ marginBottom: '6px' }}>
+                <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+            </div>
+            <div style={{ marginBottom: '6px' }}>
+                <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+            </div>
+            <div style={{ marginBottom: '8px' }}>
+                <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+            </div>
+
+            {/* TERMS SECTION - COMPACT LAYOUT (Grid style) */}
+            <div style={{ marginTop: '5px', borderTop: '1px solid #000', paddingTop: '5px' }}>
+                <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '5px', fontSize:'9pt' }}>TERMS AND CONDITIONS</div>
+                
+                {/* Use a smaller font for terms to ensure fit */}
+                <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                    
+                    {/* Column 1 */}
+                    <div>
+                        <div style={sectionTitleStyle}>TAXES:</div>
+                        <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+
+                        <div style={sectionTitleStyle}>WARRANTY:</div>
+                        <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+
+                        <div style={sectionTitleStyle}>PAYMENT:</div>
+                        <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={4} />
+                    </div>
+
+                    {/* Column 2 */}
+                    <div>
+                        <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div>
+                        <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={5} />
+
+                        <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div>
+                        <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={3} />
+                    </div>
                 </div>
-                <div>
-                    Dated: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '100px', textAlign: 'right' }} />
-                </div>
             </div>
 
-            <div style={{ marginBottom: '15px' }}>
-                <div>TO,</div>
-                <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', border:'none' }} />
-                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...editableStyle, fontWeight: 'bold', border:'none' }} />
-                <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...editableStyle, border:'none' }} />
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>
-                Dear Sir,
-            </div>
-
-            <div style={{ marginBottom: '15px', fontWeight: 'bold' }}>
-                SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', width: '80%', display: 'inline-block', border:'none' }} />
-            </div>
-
-            {/* BODY PARAGRAPHS */}
-            <div style={{ marginBottom: '10px' }}>
-                <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...editableStyle, minHeight: '40px', border: 'none' }} />
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-                <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...editableStyle, minHeight: '40px', border: 'none' }} />
-            </div>
-            <div style={{ marginBottom: '15px' }}>
-                <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...editableStyle, minHeight: '40px', border: 'none' }} />
-            </div>
-
-            {/* TERMS SECTION */}
-            <div style={{ marginTop: '15px', borderTop: '1px solid #ccc', paddingTop: '10px' }}>
-                <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '10px' }}>TERMS AND CONDITIONS</div>
-
-                <div style={sectionTitleStyle}>TAXES:</div>
-                <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...editableStyle, border: 'none' }} />
-
-                <div style={sectionTitleStyle}>SUPPLY AND INSTALLATION:</div>
-                <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...editableStyle, minHeight: '60px', border: 'none' }} />
-
-                <div style={sectionTitleStyle}>WARRANTY:</div>
-                <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...editableStyle, border: 'none' }} />
-
-                <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div>
-                <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...editableStyle, minHeight: '50px', border: 'none' }} />
-
-                <div style={sectionTitleStyle}>PAYMENT:</div>
-                <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...editableStyle, minHeight: '80px', border: 'none' }} />
-            </div>
-
-            <div style={{ marginTop: '30px' }}>
+            {/* Sign Off */}
+            <div style={{ marginTop: '10px' }}>
                 <div>Yours truly,</div>
-                <div style={{ fontWeight: 'bold', marginTop: '5px' }}>For United Biomedical Services,</div>
-                <div style={{ marginTop: '30px' }}>
-                    <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block' }} />
-                    <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block' }} />
+                <div style={{ fontWeight: 'bold' }}>For United Biomedical Services,</div>
+                <div style={{ marginTop: '20px' }}>
+                    <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block', fontSize:'11pt' }} />
+                    <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block', fontSize:'10pt' }} />
                 </div>
             </div>
-
         </div> 
         {/* END PAGE 1 */}
 
 
         {/* ======================= PAGE BREAK ======================= */}
-        {/* Only show the page break if we are generating PDF, otherwise it just takes up space */}
         {isPdfGenerating && (
             <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
         )}
 
 
         {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
-        {/* Logic: Show if Tab is Quote OR if we are currently Generating a PDF */}
         <div className="page-2" style={{ paddingTop: '10px', display: (activeTab === 'quote' || isPdfGenerating) ? 'block' : 'none' }}>
             
             <DocumentHeader />
