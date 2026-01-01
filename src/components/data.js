@@ -13,7 +13,6 @@ export const productCatalog = [
       { "id": 8, "name": "54mm", "weight": 2.213, "unit": "mtr" },
       { "id": 9, "name": "76mm", "weight": 4.164, "unit": "mtr" },
       { "id": 10, "name": "108mm", "weight": 7.411, "unit": "mtr" },
-      
       // Items without specific weights use fixed factoryPrice
       { "id": 11, "name": "12mm conseal", "factoryPrice": 453.39, "unit": "mtr" },
       { "id": 12, "name": "Hanging support", "factoryPrice": 75.0, "unit": "nos" }

@@ -8,7 +8,7 @@ export default function Calculator() {
   const [categoryOrder, setCategoryOrder] = useState([]); 
   
   // --- STATE: GLOBAL DRIVERS ---
-  const [copperRate, setCopperRate] = useState(1270); 
+  const [copperRate, setCopperRate] = useState(1270); // Default Copper Rate
   const [baseMarginPercent, setBaseMarginPercent] = useState(20);
   
   // --- STATE: TOTALS ---
@@ -17,7 +17,13 @@ export default function Calculator() {
   const [grandTotalProfit, setGrandTotalProfit] = useState(0);
   const [gstPercent, setGstPercent] = useState(18);
 
-  // --- STATE: COVER LETTER CONTENT (Editable) ---
+  // --- STATE: VISUALS & STYLES ---
+  const [logoUrl, setLogoUrl] = useState(null); 
+  const [bodyFontSize, setBodyFontSize] = useState(10); 
+  const [bodyColor, setBodyColor] = useState("#000000"); 
+  const [isBodyBold, setIsBodyBold] = useState(false); 
+
+  // --- STATE: COVER LETTER CONTENT ---
   const [coverRef, setCoverRef] = useState("UBS/78PL/MMCK");
   const [coverDate, setCoverDate] = useState("09-12-2025");
   const [coverToName, setCoverToName] = useState("Managing Director");
@@ -41,7 +47,7 @@ export default function Calculator() {
 
   // --- VIEW STATE ---
   const [isClientMode, setIsClientMode] = useState(false);
-  const [activeTab, setActiveTab] = useState('cover'); // 'cover' or 'quote'
+  const [activeTab, setActiveTab] = useState('cover'); 
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   
   const pdfRef = useRef();
@@ -49,18 +55,31 @@ export default function Calculator() {
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef(null);
 
-  // --- CALCULATION LOGIC ---
+  // --- HANDLER: IMAGE UPLOAD ---
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLogoUrl(url);
+    }
+  };
+
+  // ====================================================================
+  //  CORE CALCULATION LOGIC 
+  // ====================================================================
+  
+  // 1. Calculate a single row based on its Base Price, Costs, and Margin
   const calculateRow = (row, overrideMargin = null) => {
     const marginPct = overrideMargin !== null ? overrideMargin : row.marginPercent;
     
-    // Costs
+    // Costs Calculation
     const transAmt = row.factoryPrice * (row.transPercent / 100);
     const internalCost = row.factoryPrice + transAmt + row.fittingCost + row.saddleCost + row.workCost;
     
-    // Margin
+    // Margin Calculation
     const marginAmt = internalCost * (marginPct / 100);
     
-    // Quoted Price (Cost + Margin)
+    // Final Quoted Price
     const calculatedPrice = internalCost + marginAmt;
     
     return {
@@ -73,22 +92,29 @@ export default function Calculator() {
     };
   };
 
-  // --- HANDLERS ---
+  // 2. Handle changes to the Copper Market Rate
+  //    This specifically targets items in Category 1000 that have a 'weight'
   const handleCopperRateChange = (newRate) => {
       const rate = parseFloat(newRate) || 0;
       setCopperRate(rate);
       setRows(rows.map(row => {
+          // Only update Category 1000 (Copper Pipes)
           if (row.categoryId === 1000) {
-              const catalogItem = productCatalog.find(c => c.id === 1000)?.items.find(i => i.id === row.id);
+              const category = productCatalog.find(c => c.id === 1000);
+              const catalogItem = category?.items.find(i => i.id === row.id);
+              
+              // If the item has a weight (like pipes), recalculate Factory Price
               if (catalogItem && catalogItem.weight !== undefined) {
                    const newFactoryPrice = catalogItem.weight * rate;
                    return calculateRow({ ...row, factoryPrice: newFactoryPrice }, null);
               }
+              // If it's a fixed price item (like '12mm conseal'), do not change it
           }
           return row;
       }));
   };
 
+  // 3. Add a new row from the Product Catalog
   const addRow = (productId, categoryId) => {
     const category = productCatalog.find(c => c.id === categoryId);
     const product = category?.items.find(p => p.id === productId);
@@ -98,13 +124,18 @@ export default function Calculator() {
         setCategoryOrder([...categoryOrder, categoryId]);
     }
 
-    let startPrice = product.factoryPrice || 0;
+    // Determine Base Price:
+    // If it has weight, price = weight * copperRate
+    // If no weight, price = factoryPrice (Fixed)
+    let startPrice = 0;
     if (product.weight !== undefined) {
         startPrice = product.weight * copperRate;
+    } else if (product.factoryPrice !== undefined) {
+        startPrice = product.factoryPrice;
     }
 
     const newRowRaw = {
-      uid: Date.now(),
+      uid: Date.now(), // Unique ID for React Key
       id: product.id,
       categoryId: categoryId,
       name: product.name,
@@ -112,7 +143,7 @@ export default function Calculator() {
       unit: product.unit,
       qty: 1,
       factoryPrice: startPrice,
-      transPercent: 2,
+      transPercent: 2, // Default Transport %
       fittingCost: 0,
       saddleCost: 0,
       workCost: 0,
@@ -122,11 +153,12 @@ export default function Calculator() {
     setRows([...rows, calculateRow(newRowRaw, baseMarginPercent)]);
     setSearchTerm('');
     setShowDropdown(false);
-    setActiveTab('quote');
+    setActiveTab('quote'); // Switch to Quote tab to see the new item
   };
 
   const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
 
+  // 4. Update specific fields (User edits a cell)
   const updateRow = (uid, field, value) => {
     const val = value === '' ? 0 : parseFloat(value);
     setRows(rows.map(row => {
@@ -134,13 +166,16 @@ export default function Calculator() {
         const updated = { ...row, [field]: val };
 
         if (field === 'transAmt') {
+             // Reverse calculate Trans% if user types Amount
              updated.transPercent = row.factoryPrice > 0 ? (val / row.factoryPrice) * 100 : 0;
         } else if (field === 'marginAmt') {
+             // Reverse calculate Margin% if user types Amount
              const cost = row.internalCost;
              updated.marginPercent = cost > 0 ? (val / cost) * 100 : 0;
              updated.quotedPrice = cost + val;
              return { ...updated, marginAmt: val }; 
         } else if (field === 'quotedPrice') {
+            // Reverse calculate Margin if user types Final Price
             const cost = row.internalCost;
             if (cost > 0) {
                 const newMarginAmt = val - cost;
@@ -153,6 +188,7 @@ export default function Calculator() {
     }));
   };
 
+  // 5. Handle Total Amount Override (Reverse Calculate Quoted Rate)
   const handleRowAmountChange = (uid, newAmount) => {
       const amount = parseFloat(newAmount) || 0;
       setRows(rows.map(row => {
@@ -193,7 +229,9 @@ export default function Calculator() {
       setGrandTotalCost(costSum); setGrandTotalProjectValue(valueSum); setGrandTotalProfit(valueSum - costSum);
   }, [rows]);
 
-  // --- SEARCH ---
+  // ====================================================================
+  //  SEARCH & PDF LOGIC
+  // ====================================================================
   const searchResults = [];
   if (searchTerm.length > 0) {
     productCatalog.forEach(cat => {
@@ -205,7 +243,6 @@ export default function Calculator() {
     });
   }
 
-  // --- PDF GENERATION (UPDATED FOR MARGINS) ---
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
     const wasInClientMode = isClientMode;
@@ -214,7 +251,7 @@ export default function Calculator() {
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
-            margin: [5, 5, 5, 5], // Updated: Compact margins
+            margin: [5, 5, 5, 5], 
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 2, useCORS: true }, 
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -231,23 +268,34 @@ export default function Calculator() {
   const readOnlyStyle = { width: '100%', border: 'none', background: 'transparent', textAlign:'right', color:'#555', fontWeight:'500', fontSize:'11px' };
   const headerStyle = { background: '#343a40', color: 'white', textAlign: 'center', fontSize:'11px', padding:'5px 2px' };
   
-  // Editable Textarea Style for Cover Letter
-  const editableStyle = {
-      width: '100%', border: '1px dashed #ccc', background: 'transparent', 
-      fontFamily: 'inherit', fontSize: 'inherit', padding: '2px', resize: 'vertical',
-      minHeight: '20px'
+  const dynamicTextStyle = {
+      width: '100%', 
+      border: '1px dashed #ccc', 
+      background: 'transparent', 
+      resize: 'vertical',
+      minHeight: '20px',
+      fontFamily: 'inherit',
+      fontSize: `${bodyFontSize}pt`,
+      color: bodyColor,
+      fontWeight: isBodyBold ? 'bold' : 'normal'
   };
+  
   const sectionTitleStyle = { fontSize: '10px', fontWeight: 'bold', textDecoration: 'underline', marginTop: '6px', marginBottom: '2px' };
 
-  // --- UPDATED HEADER (Uses Image) ---
+  // --- HEADER COMPONENT ---
   const DocumentHeader = () => (
     <div style={{ marginBottom: '10px', textAlign: 'center' }}>
-      {/* Ensure you put the file 'header.png' in your project's PUBLIC folder */}
-      <img 
-        src="/header.png" 
-        alt="United Biomedical Services" 
-        style={{ width: '100%', height: 'auto', maxHeight: '120px', objectFit: 'contain' }} 
-      />
+      {logoUrl ? (
+          <img 
+            src={logoUrl} 
+            alt="Header" 
+            style={{ width: '100%', height: 'auto', maxHeight: '140px', objectFit: 'contain' }} 
+          />
+      ) : (
+          <div style={{ padding:'20px', border:'2px dashed #ccc', color:'#999', background:'#f8f9fa' }}>
+              Upload Header Image using the controls above
+          </div>
+      )}
     </div>
   );
 
@@ -271,6 +319,30 @@ export default function Calculator() {
              </div>
         </div>
 
+        {/* MIDDLE ROW: VISUAL SETTINGS */}
+        {!isClientMode && activeTab === 'cover' && (
+            <div style={{ display:'flex', gap:'20px', alignItems:'center', background:'#f1f3f5', padding:'10px', borderRadius:'6px' }}>
+                <div style={{ fontWeight:'bold', fontSize:'12px', color:'#555' }}>LETTER STYLE:</div>
+                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Header Img:</label>
+                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ fontSize:'11px' }} />
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Size:</label>
+                    <input type="number" value={bodyFontSize} onChange={(e) => setBodyFontSize(e.target.value)} style={{ width:'40px', padding:'2px' }} />
+                    <span style={{ fontSize:'11px' }}>pt</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Color:</label>
+                    <input type="color" value={bodyColor} onChange={(e) => setBodyColor(e.target.value)} style={{ height:'25px', width:'30px', padding:'0', border:'none' }} />
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Bold:</label>
+                    <input type="checkbox" checked={isBodyBold} onChange={(e) => setIsBodyBold(e.target.checked)} />
+                </div>
+            </div>
+        )}
+
         {/* BOTTOM ROW: GLOBAL SETTINGS */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
              {!isClientMode ? (
@@ -292,7 +364,7 @@ export default function Calculator() {
         </div>
       </div>
 
-      {/* --- SEARCH BAR (Only visible on Quote Tab) --- */}
+      {/* --- SEARCH BAR --- */}
       {(!isClientMode && activeTab === 'quote') && (
         <div ref={searchRef} style={{ position: 'relative', marginBottom: '20px' }}>
             <input type="text" placeholder="Search Item to Add to Quote..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
@@ -300,8 +372,10 @@ export default function Calculator() {
             {showDropdown && searchResults.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', maxHeight: '400px', overflowY: 'auto', border: '1px solid #ccc', zIndex: 1000, boxShadow: '0 10px 20px rgba(0,0,0,0.15)', borderRadius:'0 0 8px 8px' }}>
                     {searchResults.map((item, idx) => {
+                        // Display price logic for Search Dropdown
                         let displayPrice = item.factoryPrice;
                         if(item.weight !== undefined) displayPrice = item.weight * copperRate;
+                        
                         return (
                             <div key={idx} onClick={() => addRow(item.id, item.categoryId)} 
                                 style={{ padding: '12px 20px', borderBottom: '1px solid #f1f1f1', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
@@ -323,104 +397,82 @@ export default function Calculator() {
       
       <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', boxShadow: '0 5px 30px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
         
-        {/* ======================= PAGE 1: COVERING LETTER (COMPACT) ======================= */}
-        <div className="page-1" style={{ fontSize: '10pt', lineHeight: '1.2', color: '#000', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
+        {/* ======================= PAGE 1: COVERING LETTER ======================= */}
+        <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.2', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
             
             <DocumentHeader />
 
-            {/* Reference Line - Compact */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: 'bold', fontSize: '10pt' }}>
-                <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '150px', fontSize: 'inherit' }} /></div>
-                <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '100px', textAlign: 'right', fontSize: 'inherit' }} /></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: 'bold', fontSize: 'inherit' }}>
+                <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '150px', fontSize: 'inherit', color:'inherit' }} /></div>
+                <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '100px', textAlign: 'right', fontSize: 'inherit', color:'inherit' }} /></div>
             </div>
 
-            {/* To Section - Compact */}
             <div style={{ marginBottom: '8px' }}>
                 <div style={{fontWeight:'bold'}}>TO,</div>
-                <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
-                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...editableStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
-                <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...editableStyle, border:'none', padding:'0' }} />
+                <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...dynamicTextStyle, border:'none', padding:'0' }} />
             </div>
 
             <div style={{ marginBottom: '8px' }}>Dear Sir,</div>
 
-            {/* Subject - Compact */}
             <div style={{ marginBottom: '8px', fontWeight: 'bold', textDecoration:'underline' }}>
-                SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', width: '85%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
+                SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', width: '85%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
             </div>
 
-            {/* BODY PARAGRAPHS - Removed minHeights to save space */}
             <div style={{ marginBottom: '6px' }}>
-                <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
             </div>
             <div style={{ marginBottom: '6px' }}>
-                <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
             </div>
             <div style={{ marginBottom: '8px' }}>
-                <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
             </div>
 
-            {/* TERMS SECTION - COMPACT LAYOUT (Grid style) */}
             <div style={{ marginTop: '5px', borderTop: '1px solid #000', paddingTop: '5px' }}>
                 <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '5px', fontSize:'9pt' }}>TERMS AND CONDITIONS</div>
-                
-                {/* Use a smaller font for terms to ensure fit */}
-                <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                    
-                    {/* Column 1 */}
+                <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', color:'#000', fontWeight:'normal' }}>
                     <div>
                         <div style={sectionTitleStyle}>TAXES:</div>
-                        <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={2} />
-
+                        <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
                         <div style={sectionTitleStyle}>WARRANTY:</div>
-                        <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={2} />
-
+                        <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
                         <div style={sectionTitleStyle}>PAYMENT:</div>
-                        <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={4} />
+                        <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={4} />
                     </div>
-
-                    {/* Column 2 */}
                     <div>
                         <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div>
-                        <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={5} />
-
+                        <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={5} />
                         <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div>
-                        <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...editableStyle, border: 'none', fontSize:'9pt' }} rows={3} />
+                        <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={3} />
                     </div>
                 </div>
             </div>
 
-            {/* Sign Off */}
             <div style={{ marginTop: '10px' }}>
                 <div>Yours truly,</div>
                 <div style={{ fontWeight: 'bold' }}>For United Biomedical Services,</div>
                 <div style={{ marginTop: '20px' }}>
-                    <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block', fontSize:'11pt' }} />
-                    <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block', fontSize:'10pt' }} />
+                    <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block', fontSize:'11pt', width:'100%' }} />
+                    <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block', fontSize:'10pt', width:'100%' }} />
                 </div>
             </div>
         </div> 
-        {/* END PAGE 1 */}
 
-
-        {/* ======================= PAGE BREAK ======================= */}
         {isPdfGenerating && (
             <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
         )}
 
-
         {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
         <div className="page-2" style={{ paddingTop: '10px', display: (activeTab === 'quote' || isPdfGenerating) ? 'block' : 'none' }}>
-            
             <DocumentHeader />
-
             <div style={{ textAlign: 'right', marginBottom: '20px' }}>
                 <h2 style={{ margin: '0 0 5px 0', color: '#444' }}>QUOTATION DETAILS</h2>
                 <div style={{ fontSize: '12px' }}>Ref: {coverRef}</div>
                 <div style={{ fontSize: '12px' }}>Date: {coverDate}</div>
             </div>
 
-            {/* QUOTE TABLE */}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                 <thead>
                     <tr style={{height:'30px'}}>
@@ -453,21 +505,12 @@ export default function Calculator() {
                         )}
                     </tr>
                 </thead>
-                
                 <tbody>
                 {categoryOrder.map((catId, catIndex) => {
                     const category = productCatalog.find(c => c.id === catId);
                     const catRows = rows.filter(r => r.categoryId === catId);
-                    
-                    let subTotalAmt = 0;
-                    let subTotalCost = 0;
-                    let subTotalGross = 0;
-
-                    catRows.forEach(r => {
-                        subTotalAmt += r.quotedPrice * r.qty;
-                        subTotalCost += r.internalCost * r.qty;
-                        subTotalGross += (r.quotedPrice - r.internalCost) * r.qty;
-                    });
+                    let subTotalAmt = 0; let subTotalCost = 0; let subTotalGross = 0;
+                    catRows.forEach(r => { subTotalAmt += r.quotedPrice * r.qty; subTotalCost += r.internalCost * r.qty; subTotalGross += (r.quotedPrice - r.internalCost) * r.qty; });
 
                     if (catRows.length === 0 && isClientMode) return null;
 
@@ -486,17 +529,14 @@ export default function Calculator() {
                                     </div>
                                 </td>
                             </tr>
-
                             {catRows.map((row, index) => {
                                 const actualProfit = row.quotedPrice - row.internalCost;
                                 const actualProfitPercent = row.internalCost > 0 ? (actualProfit / row.internalCost) * 100 : 0;
                                 const totalGross = actualProfit * row.qty;
-
                                 return (
                                     <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
                                         <td style={{ textAlign: 'center', padding:'4px' }}>{index + 1}</td>
                                         <td style={{ padding:'4px' }}>{row.name}</td>
-                                        
                                         {!isClientMode && (
                                             <>
                                                 <td style={{padding:'2px'}}><input type="number" value={row.factoryPrice.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
@@ -510,20 +550,16 @@ export default function Calculator() {
                                                 <td style={{padding:'2px'}}><input type="number" value={row.marginAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'marginAmt', e.target.value)} style={inputStyle} /></td>
                                             </>
                                         )}
-
                                         <td style={{padding:'2px'}}>
                                             {isClientMode ? <div style={{textAlign:'center'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center'}} />}
                                         </td>
                                         <td style={{textAlign:'center', color:'#888'}}>{row.unit}</td>
-                                        
                                         <td style={{padding:'2px'}}>
                                             {isClientMode ? <div style={{textAlign:'right'}}>{row.quotedPrice.toFixed(2)}</div> : <input type="number" value={row.quotedPrice} onChange={(e)=>updateRow(row.uid, 'quotedPrice', e.target.value)} style={{...inputStyle, fontWeight:'bold', color:'#0056b3'}} />}
                                         </td>
-                                        
                                         <td style={{padding:'2px', textAlign:'right', fontWeight:'bold'}}>
                                             {isClientMode ? (row.quotedPrice * row.qty).toLocaleString('en-IN') : <input type="number" value={(row.quotedPrice * row.qty).toFixed(2)} onChange={(e)=>handleRowAmountChange(row.uid, e.target.value)} style={{...readOnlyStyle, color:'#000'}} />}
                                         </td>
-                                        
                                         {!isClientMode && (
                                             <>
                                                 <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#198754'}}>{actualProfit.toFixed(0)}</td>
@@ -535,7 +571,6 @@ export default function Calculator() {
                                     </tr>
                                 );
                             })}
-
                             {!isClientMode && (
                                 <tr style={{ background: '#f8f9fa', borderTop: '2px solid #dee2e6' }}>
                                     <td colSpan={2} style={{textAlign:'right', padding:'5px', fontWeight:'bold', color:'#888', fontSize:'10px'}}>SECTION TOTAL:</td>
@@ -554,7 +589,6 @@ export default function Calculator() {
                 </tbody>
             </table>
 
-            {/* GRAND TOTALS ON PAGE 2 */}
             <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
                 <div style={{ width: '300px', padding:'15px', background:'#f8f9fa', borderRadius:'8px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'10px' }}>
@@ -577,40 +611,8 @@ export default function Calculator() {
                     <strong>Note:</strong> Prices are valid for 30 days. E&OE.
                 </div>
             </div>
-
-        </div> 
-        {/* END PAGE 2 */}
-
-      </div>
-
-      {/* FOOTER BAR (INTERNAL CONTROLS) */}
-      {!isClientMode && (
-        <div style={{ position:'fixed', bottom:0, left:0, right:0, background: '#343a40', color:'white', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow:'0 -2px 10px rgba(0,0,0,0.1)', zIndex: 999 }}>
-          <div>
-            <div style={{ fontSize: '11px', color: '#adb5bd' }}>INTERNAL COST</div>
-            <div style={{ fontSize: '18px', fontWeight: 'bold' }}>₹{grandTotalCost.toLocaleString('en-IN', {maximumFractionDigits:0})}</div>
-          </div>
-          
-          <div style={{ textAlign: 'center', display:'flex', gap:'20px', alignItems:'center' }}>
-             <div>
-                 <div style={{ fontSize: '11px', color: '#adb5bd' }}>AVG MARGIN %</div>
-                 <input type="number" value={baseMarginPercent.toFixed(2)} onChange={(e) => handleGlobalMarginChange(e.target.value)}
-                    style={{ width: '60px', textAlign: 'center', background:'#495057', color:'white', border:'none', padding:'5px', borderRadius:'4px', fontWeight:'bold' }} />
-             </div>
-             <div>
-                <div style={{ fontSize: '11px', color: '#adb5bd' }}>NET PROFIT</div>
-                <div style={{ fontSize: '16px', color: '#28a745', fontWeight:'bold' }}>₹{grandTotalProfit.toLocaleString('en-IN', {maximumFractionDigits:0})}</div>
-             </div>
-          </div>
-
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '11px', color: '#adb5bd' }}>OVERRIDE TOTAL VALUE</div>
-            <input type="number" value={grandTotalProjectValue.toFixed(0)} onChange={(e) => handleGrandTotalChange(e.target.value)}
-              style={{ fontSize: '20px', width: '140px', textAlign: 'right', background:'white', color:'black', border:'none', padding:'4px 8px', borderRadius:'4px', fontWeight:'bold' }} />
-          </div>
         </div>
-      )}
-
+      </div>
     </div>
   );
 }
