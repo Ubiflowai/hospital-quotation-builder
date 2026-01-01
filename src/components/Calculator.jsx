@@ -39,8 +39,11 @@ export default function Calculator() {
   const [signatoryName, setSignatoryName] = useState("Ahammad adil");
   const [signatoryPhone, setSignatoryPhone] = useState("09388774401");
 
-  // --- VIEW STATE ---
+  // --- VIEW STATE (UPDATED FOR TABS) ---
   const [isClientMode, setIsClientMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('cover'); // 'cover' or 'quote'
+  const [isPdfGenerating, setIsPdfGenerating] = useState(false); // New state to force show all pages during PDF
+  
   const pdfRef = useRef();
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -119,6 +122,8 @@ export default function Calculator() {
     setRows([...rows, calculateRow(newRowRaw, baseMarginPercent)]);
     setSearchTerm('');
     setShowDropdown(false);
+    // Auto switch to quote tab when adding items so user sees it
+    setActiveTab('quote');
   };
 
   const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
@@ -203,21 +208,26 @@ export default function Calculator() {
 
   // --- PDF GENERATION ---
   const handleDownloadPDF = () => {
+    // 1. Force both pages to be visible for the PDF engine
+    setIsPdfGenerating(true);
+    // 2. Hide inputs (clean look)
     const wasInClientMode = isClientMode;
     if (!isClientMode) setIsClientMode(true);
 
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
-            margin: [10, 10, 10, 10], // top, left, bottom, right
+            margin: [10, 10, 10, 10], 
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 2, useCORS: true }, 
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak: { mode: ['css', 'legacy'] } 
         }).from(element).save().then(() => {
+             // 3. Revert back to tab view after download
+             setIsPdfGenerating(false);
              if (!wasInClientMode) setIsClientMode(false);
         });
-    }, 800);
+    }, 1000); // Increased delay slightly to ensure DOM renders
   };
 
   // --- STYLES ---
@@ -255,32 +265,72 @@ export default function Calculator() {
     <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', backgroundColor: '#e9ecef', minWidth: '1100px', paddingBottom:'150px' }}>
       
       {/* --- CONTROL BAR --- */}
-      <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems:'center', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-        <h2 style={{ margin: 0, color: '#2c3e50' }}>Quotation Manager</h2>
+      <div style={{ marginBottom: '20px', display: 'flex', flexDirection:'column', gap:'15px', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
         
-        {!isClientMode && (
-             <div style={{ display: 'flex', alignItems: 'center', background: '#fff3cd', padding: '5px 15px', borderRadius: '20px', border:'1px solid #ffeeba' }}>
-                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#856404', marginRight: '10px' }}>Copper Market Rate:</span>
-                <input type="number" value={copperRate} onChange={(e) => handleCopperRateChange(e.target.value)}
-                    style={{ width: '80px', padding: '5px', borderRadius: '4px', border: '1px solid #ccc', textAlign: 'center', fontWeight:'bold' }} />
-            </div>
-        )}
+        {/* TOP ROW: TITLE & TABS */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #eee', paddingBottom:'10px'}}>
+             <h2 style={{ margin: 0, color: '#2c3e50' }}>Quotation Manager</h2>
+             
+             {/* --- NEW TAB BUTTONS --- */}
+             <div style={{ display:'flex', gap:'10px' }}>
+                 <button 
+                    onClick={() => setActiveTab('cover')}
+                    style={{ 
+                        padding: '10px 20px', 
+                        cursor: 'pointer', 
+                        borderRadius: '20px', 
+                        fontWeight: 'bold', 
+                        border: 'none',
+                        background: activeTab === 'cover' ? '#007bff' : '#e2e6ea',
+                        color: activeTab === 'cover' ? 'white' : '#495057',
+                        boxShadow: activeTab === 'cover' ? '0 2px 5px rgba(0,123,255,0.4)' : 'none'
+                    }}>
+                    1. Edit Cover Letter
+                 </button>
+                 <button 
+                    onClick={() => setActiveTab('quote')}
+                    style={{ 
+                        padding: '10px 20px', 
+                        cursor: 'pointer', 
+                        borderRadius: '20px', 
+                        fontWeight: 'bold', 
+                        border: 'none',
+                        background: activeTab === 'quote' ? '#007bff' : '#e2e6ea',
+                        color: activeTab === 'quote' ? 'white' : '#495057',
+                        boxShadow: activeTab === 'quote' ? '0 2px 5px rgba(0,123,255,0.4)' : 'none'
+                    }}>
+                    2. Edit Quotation
+                 </button>
+             </div>
+        </div>
 
-        <div style={{display:'flex', gap:'10px'}}>
-            <button onClick={() => setIsClientMode(!isClientMode)} style={{ padding: '8px 20px', background: isClientMode ? '#28a745' : '#6c757d', color:'white', border: 'none', borderRadius: '4px', cursor:'pointer', fontWeight:'bold' }}>
-                {isClientMode ? "Exit Client Mode" : "Client Mode"}
-            </button>
-            <button onClick={handleDownloadPDF} style={{ padding: '8px 20px', background: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor:'pointer', fontWeight:'bold' }}>
-                Download PDF
-            </button>
+        {/* BOTTOM ROW: GLOBAL SETTINGS */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+             
+             {!isClientMode ? (
+                 <div style={{ display: 'flex', alignItems: 'center', background: '#fff3cd', padding: '5px 15px', borderRadius: '20px', border:'1px solid #ffeeba' }}>
+                    <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#856404', marginRight: '10px' }}>Copper Market Rate:</span>
+                    <input type="number" value={copperRate} onChange={(e) => handleCopperRateChange(e.target.value)}
+                        style={{ width: '80px', padding: '5px', borderRadius: '4px', border: '1px solid #ccc', textAlign: 'center', fontWeight:'bold' }} />
+                </div>
+             ) : <div></div>}
+
+            <div style={{display:'flex', gap:'10px'}}>
+                <button onClick={() => setIsClientMode(!isClientMode)} style={{ padding: '8px 20px', background: isClientMode ? '#28a745' : '#6c757d', color:'white', border: 'none', borderRadius: '4px', cursor:'pointer', fontWeight:'bold' }}>
+                    {isClientMode ? "Exit Client Mode" : "Client Mode"}
+                </button>
+                <button onClick={handleDownloadPDF} style={{ padding: '8px 20px', background: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor:'pointer', fontWeight:'bold' }}>
+                    Download PDF
+                </button>
+            </div>
         </div>
       </div>
 
-      {/* --- SEARCH BAR --- */}
-      {!isClientMode && (
+      {/* --- SEARCH BAR (Only visible on Quote Tab) --- */}
+      {(!isClientMode && activeTab === 'quote') && (
         <div ref={searchRef} style={{ position: 'relative', marginBottom: '20px' }}>
-            <input type="text" placeholder="Search Item to Add..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
-                style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ced4da', fontSize: '16px' }} />
+            <input type="text" placeholder="Search Item to Add to Quote..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+                style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ced4da', fontSize: '16px', boxShadow:'0 2px 5px rgba(0,0,0,0.05)' }} />
             {showDropdown && searchResults.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', maxHeight: '400px', overflowY: 'auto', border: '1px solid #ccc', zIndex: 1000, boxShadow: '0 10px 20px rgba(0,0,0,0.15)', borderRadius:'0 0 8px 8px' }}>
                     {searchResults.map((item, idx) => {
@@ -302,13 +352,14 @@ export default function Calculator() {
       )}
 
       {/* ===================================================================================== */}
-      {/* PDF DOCUMENT WRAPPER                                */}
+      {/* PDF DOCUMENT WRAPPER                                                                */}
       {/* ===================================================================================== */}
       
       <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', boxShadow: '0 5px 30px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
         
         {/* ======================= PAGE 1: COVERING LETTER ======================= */}
-        <div className="page-1" style={{ fontSize: '11pt', lineHeight: '1.4', color: '#000' }}>
+        {/* Logic: Show if Tab is Cover OR if we are currently Generating a PDF */}
+        <div className="page-1" style={{ fontSize: '11pt', lineHeight: '1.4', color: '#000', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
             
             <DocumentHeader />
 
@@ -324,7 +375,7 @@ export default function Calculator() {
             <div style={{ marginBottom: '15px' }}>
                 <div>TO,</div>
                 <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', border:'none' }} />
-                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value); setBuyerName(e.target.value);}} style={{ ...editableStyle, fontWeight: 'bold', border:'none' }} />
+                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...editableStyle, fontWeight: 'bold', border:'none' }} />
                 <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...editableStyle, border:'none' }} />
             </div>
 
@@ -381,11 +432,15 @@ export default function Calculator() {
 
 
         {/* ======================= PAGE BREAK ======================= */}
-        <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
+        {/* Only show the page break if we are generating PDF, otherwise it just takes up space */}
+        {isPdfGenerating && (
+            <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
+        )}
 
 
         {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
-        <div className="page-2" style={{ paddingTop: '10px' }}>
+        {/* Logic: Show if Tab is Quote OR if we are currently Generating a PDF */}
+        <div className="page-2" style={{ paddingTop: '10px', display: (activeTab === 'quote' || isPdfGenerating) ? 'block' : 'none' }}>
             
             <DocumentHeader />
 
