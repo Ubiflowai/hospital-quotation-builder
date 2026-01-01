@@ -3,51 +3,61 @@ import { productCatalog } from './data';
 import html2pdf from 'html2pdf.js';
 
 export default function Calculator() {
-  // --- STATE ---
+  // --- STATE: DATA ---
   const [rows, setRows] = useState([]); 
   const [categoryOrder, setCategoryOrder] = useState([]); 
   
-  // GLOBAL DRIVERS
+  // --- STATE: GLOBAL DRIVERS ---
   const [copperRate, setCopperRate] = useState(1270); 
   const [baseMarginPercent, setBaseMarginPercent] = useState(20);
   
-  // TOTALS
+  // --- STATE: TOTALS ---
   const [grandTotalCost, setGrandTotalCost] = useState(0);
   const [grandTotalProjectValue, setGrandTotalProjectValue] = useState(0);
   const [grandTotalProfit, setGrandTotalProfit] = useState(0);
   const [gstPercent, setGstPercent] = useState(18);
 
-  // META
-  const [quoteNo, setQuoteNo] = useState("397");
-  const [quoteDate, setQuoteDate] = useState(new Date().toISOString().slice(0,10));
-  const [buyerName, setBuyerName] = useState("Govt Medical College Hospital Thrissur");
-  const [buyerAddress, setBuyerAddress] = useState("Kerala, Code: 32");
+  // --- STATE: COVER LETTER CONTENT (Editable) ---
+  const [coverRef, setCoverRef] = useState("UBS/78PL/MMCK");
+  const [coverDate, setCoverDate] = useState("09-12-2025");
+  const [coverToName, setCoverToName] = useState("Managing Director");
+  const [coverToCompany, setCoverToCompany] = useState("MALABAR MEDICAL CENTRE");
+  const [coverToAddress, setCoverToAddress] = useState("KONDOTTY.");
+  const [coverSubject, setCoverSubject] = useState("New - MGPS project");
   
+  const [coverBody1, setCoverBody1] = useState("This has reference to the discussion we had with you regarding the medical gas Pipe line project.\nPlease see the attached price details for the same.");
+  const [coverBody2, setCoverBody2] = useState("We are trained by Beacon Medaes (part of Atlascopco group) India, UK and USA and have AP and NFPA certificates.\nWe follow international standards as applicable to complete our projects.");
+  const [coverBody3, setCoverBody3] = useState("After installation, commissioning and training we provide test certificate to put the MGPS system for patient use.\nWe offer you our maximum dedicated service and attention for success of the project.");
+
+  // Terms Content
+  const [termTaxes, setTermTaxes] = useState("GST 18% will be Extra as applicable as per Govt norms at the time of billing.");
+  const [termSupply, setTermSupply] = useState("The normal completion period is approximately 2-3 months from the date of receipt of technically and commercially confirmed clear order along with advance payment.\nThe completion date may vary due to delay in Civil and electrical works related to MGPS.\nDelay in manufacturing of goods, delay in delivery resulting from any cause beyond the company’s reasonable control, order/instructions of any govt authority, acts of God or military authority.");
+  const [termWarranty, setTermWarranty] = useState("All our installations and supplies would carry a warranty for 12 months from the date of installation.");
+  const [termSupport, setTermSupport] = useState("We have trained Service Engineers to give service support for the customers.\nWe will be giving training for the concerned staff. After warranty period, customer can enter in Annual Maintenance Contract with the company.\nAMC/CMC details attached with Quotation.");
+  const [termPayment, setTermPayment] = useState("50% advance and 40% at the time of installation, 10% after installation.\nAll the related Electrical and Civil works should be completed by the hospital authority.\nA safe room with door should be provided for material storage.\nThe billing will be made on the basis of actual materials used to complete the project.");
+
+  const [signatoryName, setSignatoryName] = useState("Ahammad adil");
+  const [signatoryPhone, setSignatoryPhone] = useState("09388774401");
+
+  // --- VIEW STATE ---
   const [isClientMode, setIsClientMode] = useState(false);
   const pdfRef = useRef();
-
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef(null);
 
-  // --- CALCULATION ENGINE ---
+  // --- CALCULATION LOGIC ---
   const calculateRow = (row, overrideMargin = null) => {
-    // 1. Determine Margin %
     const marginPct = overrideMargin !== null ? overrideMargin : row.marginPercent;
     
-    // 2. Costs
+    // Costs
     const transAmt = row.factoryPrice * (row.transPercent / 100);
-    // "Total Per Unit" (Internal Cost) = Charge with everything
     const internalCost = row.factoryPrice + transAmt + row.fittingCost + row.saddleCost + row.workCost;
     
-    // 3. Margin Amount (Target)
+    // Margin
     const marginAmt = internalCost * (marginPct / 100);
     
-    // 4. Quoted Price
-    // If we are just recalculating based on margin, Price = Cost + Margin
-    // However, if the user Manually Edited the Price, we might want to keep it?
-    // For this helper, we assume we are driving from Margin.
-    // NOTE: In updateRow, we handle the reverse case (Price -> Margin).
+    // Quoted Price (Cost + Margin)
     const calculatedPrice = internalCost + marginAmt;
     
     return {
@@ -115,29 +125,18 @@ export default function Calculator() {
 
   const updateRow = (uid, field, value) => {
     const val = value === '' ? 0 : parseFloat(value);
-    
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
-        
         const updated = { ...row, [field]: val };
 
-        // 1. If Factory Price changes, recalculate everything
-        if (field === 'factoryPrice') {
-             // Logic handled by calculateRow at bottom
-        }
-        // 2. If Transport Amount changes, update %
-        else if (field === 'transAmt') {
+        if (field === 'transAmt') {
              updated.transPercent = row.factoryPrice > 0 ? (val / row.factoryPrice) * 100 : 0;
-        }
-        // 3. If Added Margin Amount changes, update % and Price
-        else if (field === 'marginAmt') {
+        } else if (field === 'marginAmt') {
              const cost = row.internalCost;
              updated.marginPercent = cost > 0 ? (val / cost) * 100 : 0;
              updated.quotedPrice = cost + val;
-             return { ...updated, marginAmt: val }; // Return early to avoid overwrite
-        }
-        // 4. If Quoted Price changes (Manual Override), update Margins
-        else if (field === 'quotedPrice') {
+             return { ...updated, marginAmt: val }; 
+        } else if (field === 'quotedPrice') {
             const cost = row.internalCost;
             if (cost > 0) {
                 const newMarginAmt = val - cost;
@@ -146,7 +145,6 @@ export default function Calculator() {
             }
             return updated; 
         }
-
         return calculateRow(updated, null);
     }));
   };
@@ -157,17 +155,10 @@ export default function Calculator() {
           if (row.uid !== uid) return row;
           const qty = row.qty || 1;
           const newRate = amount / qty;
-          
           const cost = row.internalCost;
           const newMarginAmt = newRate - cost;
           const newMarginPercent = cost > 0 ? (newMarginAmt / cost) * 100 : 0;
-          
-          return { 
-              ...row, 
-              quotedPrice: newRate, 
-              marginAmt: newMarginAmt, 
-              marginPercent: newMarginPercent 
-          };
+          return { ...row, quotedPrice: newRate, marginAmt: newMarginAmt, marginPercent: newMarginPercent };
       }));
   };
 
@@ -192,7 +183,6 @@ export default function Calculator() {
     setCategoryOrder(newOrder);
   };
 
-  // --- EFFECTS ---
   useEffect(() => {
       let costSum = 0; let valueSum = 0;
       rows.forEach(r => { costSum += r.internalCost * r.qty; valueSum += r.quotedPrice * r.qty; });
@@ -211,36 +201,68 @@ export default function Calculator() {
     });
   }
 
+  // --- PDF GENERATION ---
   const handleDownloadPDF = () => {
-    setIsClientMode(true);
+    const wasInClientMode = isClientMode;
+    if (!isClientMode) setIsClientMode(true);
+
     setTimeout(() => {
         const element = pdfRef.current;
-        html2pdf().set({ margin: 5, filename: `Quote_${quoteNo}.pdf`, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4' } }).from(element).save()
-        .then(() => setIsClientMode(false));
-    }, 500);
+        html2pdf().set({ 
+            margin: [10, 10, 10, 10], // top, left, bottom, right
+            filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
+            html2canvas: { scale: 2, useCORS: true }, 
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['css', 'legacy'] } 
+        }).from(element).save().then(() => {
+             if (!wasInClientMode) setIsClientMode(false);
+        });
+    }, 800);
   };
 
   // --- STYLES ---
-  const inputStyle = { width: '100%', border: '1px solid #cce5ff', background: '#f0f8ff', padding: '4px', borderRadius: '4px', textAlign:'right', fontSize:'11px' };
+  const inputStyle = { width: '100%', border: '1px solid #cce5ff', background: '#f0f8ff', padding: '2px 4px', borderRadius: '4px', textAlign:'right', fontSize:'11px' };
   const readOnlyStyle = { width: '100%', border: 'none', background: 'transparent', textAlign:'right', color:'#555', fontWeight:'500', fontSize:'11px' };
   const headerStyle = { background: '#343a40', color: 'white', textAlign: 'center', fontSize:'11px', padding:'5px 2px' };
+  
+  // Editable Textarea Style for Cover Letter
+  const editableStyle = {
+      width: '100%', border: '1px dashed #ccc', background: 'transparent', 
+      fontFamily: 'inherit', fontSize: 'inherit', padding: '2px', resize: 'vertical',
+      minHeight: '20px'
+  };
+  const sectionTitleStyle = { fontSize: '12px', fontWeight: 'bold', textDecoration: 'underline', marginTop: '10px', marginBottom: '5px' };
+
+  // Helper: Top Header (Logo & Address)
+  const DocumentHeader = () => (
+    <div style={{ borderBottom: '2px solid #555', paddingBottom: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+            <h1 style={{ margin: '0', color: '#0056b3', fontSize: '20px', fontWeight: 'bold' }}>UNITED BIOMEDICAL SERVICES</h1>
+            <p style={{ fontSize: '10px', color: '#444', margin: '5px 0 0 0', lineHeight: '1.3' }}>
+                21/571 - United Building, 6/2, Velliparamba P.O<br/>
+                Kozhikode, Kerala, INDIA - 673008.<br/>
+                Phone +91 495 2301999, +91 9388774400, +91 9388774402
+            </p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+             {/* Logo Placeholder */}
+             <div style={{ width: '60px', height: '60px', borderRadius: '50%', border: '2px solid #ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', color: '#999', fontWeight: 'bold', marginLeft:'auto' }}>LOGO</div>
+        </div>
+    </div>
+  );
 
   return (
-    <div style={{ fontFamily: 'Segoe UI, Roboto, Helvetica, Arial, sans-serif', padding: '20px', minWidth: '1500px', backgroundColor: '#e9ecef', paddingBottom:'150px' }}>
+    <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', backgroundColor: '#e9ecef', minWidth: '1100px', paddingBottom:'150px' }}>
       
-      {/* HEADER BAR */}
+      {/* --- CONTROL BAR --- */}
       <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems:'center', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
         <h2 style={{ margin: 0, color: '#2c3e50' }}>Quotation Manager</h2>
         
         {!isClientMode && (
              <div style={{ display: 'flex', alignItems: 'center', background: '#fff3cd', padding: '5px 15px', borderRadius: '20px', border:'1px solid #ffeeba' }}>
                 <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#856404', marginRight: '10px' }}>Copper Market Rate:</span>
-                <input 
-                    type="number" 
-                    value={copperRate} 
-                    onChange={(e) => handleCopperRateChange(e.target.value)}
-                    style={{ width: '80px', padding: '5px', borderRadius: '4px', border: '1px solid #ccc', textAlign: 'center', fontWeight:'bold' }}
-                />
+                <input type="number" value={copperRate} onChange={(e) => handleCopperRateChange(e.target.value)}
+                    style={{ width: '80px', padding: '5px', borderRadius: '4px', border: '1px solid #ccc', textAlign: 'center', fontWeight:'bold' }} />
             </div>
         )}
 
@@ -254,16 +276,11 @@ export default function Calculator() {
         </div>
       </div>
 
-      {/* SEARCH BAR */}
+      {/* --- SEARCH BAR --- */}
       {!isClientMode && (
         <div ref={searchRef} style={{ position: 'relative', marginBottom: '20px' }}>
-            <input 
-                type="text" 
-                placeholder="Search Item to Add..." 
-                value={searchTerm}
-                onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
-                style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ced4da', fontSize: '16px' }}
-            />
+            <input type="text" placeholder="Search Item to Add..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+                style={{ width: '100%', padding: '15px', borderRadius: '8px', border: '1px solid #ced4da', fontSize: '16px' }} />
             {showDropdown && searchResults.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', maxHeight: '400px', overflowY: 'auto', border: '1px solid #ccc', zIndex: 1000, boxShadow: '0 10px 20px rgba(0,0,0,0.15)', borderRadius:'0 0 8px 8px' }}>
                     {searchResults.map((item, idx) => {
@@ -284,185 +301,264 @@ export default function Calculator() {
         </div>
       )}
 
-      {/* --- MAIN SHEET --- */}
-      <div ref={pdfRef} style={{ background: 'white', padding: '40px', borderRadius: '8px', boxShadow: '0 5px 30px rgba(0,0,0,0.05)', minHeight: '800px' }}>
+      {/* ===================================================================================== */}
+      {/* PDF DOCUMENT WRAPPER                                */}
+      {/* ===================================================================================== */}
+      
+      <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '15mm', boxShadow: '0 5px 30px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
         
-        {/* LETTERHEAD */}
-        <div style={{ borderBottom: '2px solid #2c3e50', paddingBottom: '20px', marginBottom: '30px', display: 'flex', justifyContent: 'space-between' }}>
-            <div>
-                <h1 style={{ margin: '0 0 5px 0', color: '#0056b3', fontSize: '26px' }}>UNITED BIOMEDICAL SERVICES</h1>
-                <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>Ph: 0495 2301999 | Email: unitedbiomed@gmail.com</p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-                <h2 style={{ margin: '0 0 10px 0', color: '#444' }}>QUOTATION</h2>
-                <div style={{ fontSize: '14px' }}>No: <input value={quoteNo} onChange={e => setQuoteNo(e.target.value)} style={{ border: 'none', borderBottom: '1px solid #ccc', textAlign: 'right', width: '80px' }} /></div>
-                <div style={{ fontSize: '14px' }}>Date: <input type="date" value={quoteDate} onChange={e => setQuoteDate(e.target.value)} style={{ border: 'none', borderBottom: '1px solid #ccc', textAlign: 'right' }} /></div>
-            </div>
-        </div>
-
-        {/* CUSTOMER BLOCK */}
-        <div style={{ marginBottom: '40px', background:'#f8f9fa', padding:'20px', borderRadius:'6px' }}>
-            <label style={{ display:'block', marginBottom:'8px', fontSize:'11px', fontWeight:'bold', color:'#888' }}>BILL TO CLIENT</label>
-            <input value={buyerName} onChange={e => setBuyerName(e.target.value)} style={{ width: '100%', fontWeight: 'bold', fontSize: '18px', border: 'none', background:'transparent', borderBottom:'1px solid #ddd' }} />
-            <textarea value={buyerAddress} onChange={e => setBuyerAddress(e.target.value)} style={{ width: '100%', border: 'none', background:'transparent', height: '40px', resize:'none' }} />
-        </div>
-
-        {/* --- DATA TABLE --- */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-            <thead>
-                <tr style={{height:'35px'}}>
-                    <th style={{...headerStyle, width:'30px'}}>#</th>
-                    <th style={{...headerStyle, textAlign:'left', paddingLeft:'10px'}}>Item Description</th>
-                    {!isClientMode && (
-                        <>
-                            <th style={{...headerStyle, width:'60px', background:'#495057'}}>Fact.</th>
-                            <th style={{...headerStyle, width:'40px', background:'#495057'}}>Trn%</th>
-                            <th style={{...headerStyle, width:'50px', background:'#495057'}}>Trn.₹</th>
-                            <th style={{...headerStyle, width:'40px'}}>Fit</th>
-                            <th style={{...headerStyle, width:'40px'}}>Sadl</th>
-                            <th style={{...headerStyle, width:'40px'}}>Work</th>
-                            <th style={{...headerStyle, width:'60px', background:'#6c757d'}}>Total Cost</th>
-                            <th style={{...headerStyle, width:'40px', background:'#adb5bd', color:'black'}}>Mrg%</th>
-                            <th style={{...headerStyle, width:'50px', background:'#adb5bd', color:'black'}}>Mrg.₹</th>
-                        </>
-                    )}
-                    <th style={{...headerStyle, width:'50px'}}>Qty</th>
-                    <th style={{...headerStyle, width:'40px'}}>Unit</th>
-                    <th style={{...headerStyle, width:'80px'}}>Rate</th>
-                    <th style={{...headerStyle, width:'90px'}}>Amount</th>
-                    {!isClientMode && (
-                        <>
-                            <th style={{...headerStyle, width:'60px', background:'#198754'}}>Pft.Marg</th>
-                            <th style={{...headerStyle, width:'50px', background:'#198754'}}>Pft.%</th>
-                            <th style={{...headerStyle, width:'70px', background:'#157347'}}>Tot.Gross</th>
-                            <th style={{...headerStyle, width:'30px', background:'#fff', color:'red'}}></th>
-                        </>
-                    )}
-                </tr>
-            </thead>
+        {/* ======================= PAGE 1: COVERING LETTER ======================= */}
+        <div className="page-1" style={{ fontSize: '11pt', lineHeight: '1.4', color: '#000' }}>
             
-            <tbody>
-            {categoryOrder.map((catId, catIndex) => {
-                const category = productCatalog.find(c => c.id === catId);
-                const catRows = rows.filter(r => r.categoryId === catId);
-                
-                // SUBSECTION TOTALS
-                let subTotalAmt = 0;
-                let subTotalCost = 0;
-                let subTotalGross = 0;
+            <DocumentHeader />
 
-                catRows.forEach(r => {
-                    subTotalAmt += r.quotedPrice * r.qty;
-                    subTotalCost += r.internalCost * r.qty;
-                    subTotalGross += (r.quotedPrice - r.internalCost) * r.qty;
-                });
-
-                if (catRows.length === 0 && isClientMode) return null;
-
-                return (
-                    <>
-                        <tr key={`cat-${catId}`} style={{ background: '#e9ecef' }}>
-                            <td colSpan={isClientMode ? 5 : 18} style={{ padding: '8px 10px', fontWeight: 'bold', color:'#333', borderBottom:'1px solid #dee2e6' }}>
-                                <div style={{display:'flex', justifyContent:'space-between'}}>
-                                    <span>{category?.name}</span>
-                                    {!isClientMode && (
-                                        <div>
-                                            <button onClick={() => moveCategory(catIndex, 'up')} style={{cursor:'pointer', border:'none', background:'none'}}>⬆</button>
-                                            <button onClick={() => moveCategory(catIndex, 'down')} style={{cursor:'pointer', border:'none', background:'none'}}>⬇</button>
-                                        </div>
-                                    )}
-                                </div>
-                            </td>
-                        </tr>
-
-                        {catRows.map((row, index) => {
-                            // Row calculations for display
-                            const actualProfit = row.quotedPrice - row.internalCost;
-                            const actualProfitPercent = row.internalCost > 0 ? (actualProfit / row.internalCost) * 100 : 0;
-                            const totalGross = actualProfit * row.qty;
-
-                            return (
-                                <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
-                                    <td style={{ textAlign: 'center', padding:'5px' }}>{index + 1}</td>
-                                    <td style={{ padding:'5px' }}>{row.name}</td>
-                                    
-                                    {!isClientMode && (
-                                        <>
-                                            <td style={{padding:'2px'}}><input type="number" value={row.factoryPrice.toFixed(2)} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
-                                            <td style={{padding:'2px'}}><input type="number" value={row.transPercent} onChange={(e)=>updateRow(row.uid, 'transPercent', e.target.value)} style={inputStyle} /></td>
-                                            <td style={{padding:'2px'}}><input type="number" value={row.transAmt.toFixed(2)} onChange={(e)=>updateRow(row.uid, 'transAmt', e.target.value)} style={readOnlyStyle} tabIndex="-1" /></td>
-                                            <td style={{padding:'2px'}}><input type="number" value={row.fittingCost} onChange={(e)=>updateRow(row.uid, 'fittingCost', e.target.value)} style={inputStyle} /></td>
-                                            <td style={{padding:'2px'}}><input type="number" value={row.saddleCost} onChange={(e)=>updateRow(row.uid, 'saddleCost', e.target.value)} style={inputStyle} /></td>
-                                            <td style={{padding:'2px'}}><input type="number" value={row.workCost} onChange={(e)=>updateRow(row.uid, 'workCost', e.target.value)} style={inputStyle} /></td>
-                                            <td style={{padding:'2px', fontWeight:'bold', color:'#666', textAlign:'right'}}>{row.internalCost.toFixed(0)}</td>
-                                            <td style={{padding:'2px'}}><input type="number" value={row.marginPercent.toFixed(2)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={{...inputStyle, background:'#fff3cd', border:'1px solid #ffeeba'}} /></td>
-                                            <td style={{padding:'2px'}}><input type="number" value={row.marginAmt.toFixed(2)} onChange={(e)=>updateRow(row.uid, 'marginAmt', e.target.value)} style={inputStyle} /></td>
-                                        </>
-                                    )}
-
-                                    <td style={{padding:'2px'}}>
-                                        {isClientMode ? <div style={{textAlign:'center'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center'}} />}
-                                    </td>
-                                    <td style={{textAlign:'center', color:'#888'}}>{row.unit}</td>
-                                    
-                                    <td style={{padding:'2px'}}>
-                                        {isClientMode ? <div style={{textAlign:'right'}}>{row.quotedPrice.toFixed(2)}</div> : <input type="number" value={row.quotedPrice} onChange={(e)=>updateRow(row.uid, 'quotedPrice', e.target.value)} style={{...inputStyle, fontWeight:'bold', color:'#0056b3'}} />}
-                                    </td>
-                                    
-                                    <td style={{padding:'2px', textAlign:'right', fontWeight:'bold'}}>
-                                        {isClientMode ? (row.quotedPrice * row.qty).toLocaleString('en-IN') : <input type="number" value={(row.quotedPrice * row.qty).toFixed(2)} onChange={(e)=>handleRowAmountChange(row.uid, e.target.value)} style={{...readOnlyStyle, color:'#000'}} />}
-                                    </td>
-                                    
-                                    {!isClientMode && (
-                                        <>
-                                            <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#198754'}}>{actualProfit.toFixed(0)}</td>
-                                            <td style={{textAlign:'right', paddingRight:'5px', color: '#666'}}>{actualProfitPercent.toFixed(1)}%</td>
-                                            <td style={{textAlign:'right', paddingRight:'5px', fontWeight:'bold', color: totalGross < 0 ? 'red' : '#157347'}}>{totalGross.toFixed(0)}</td>
-                                            <td style={{textAlign:'center'}}><button onClick={()=>removeRow(row.uid)} style={{color:'#dc3545', border:'none', background:'none', cursor:'pointer'}}>×</button></td>
-                                        </>
-                                    )}
-                                </tr>
-                            );
-                        })}
-
-                        {!isClientMode && (
-                            <tr style={{ background: '#f8f9fa', borderTop: '2px solid #dee2e6' }}>
-                                <td colSpan={2} style={{textAlign:'right', padding:'5px', fontWeight:'bold', color:'#888', fontSize:'10px'}}>SECTION TOTAL:</td>
-                                <td colSpan={7}></td>
-                                <td colSpan={1} style={{textAlign:'right', padding:'5px', fontSize:'11px'}}>Cost: {subTotalCost.toFixed(0)}</td>
-                                <td colSpan={4}></td>
-                                <td style={{textAlign:'right', padding:'5px', fontWeight:'bold'}}>₹{subTotalAmt.toLocaleString('en-IN')}</td>
-                                <td colSpan={2}></td>
-                                <td style={{textAlign:'right', padding:'5px', fontWeight:'bold', color: subTotalGross < 0 ? 'red' : 'green'}}>{subTotalGross.toLocaleString('en-IN')}</td>
-                                <td></td>
-                            </tr>
-                        )}
-                    </>
-                );
-            })}
-            </tbody>
-        </table>
-
-        {/* GRAND TOTALS */}
-        <div style={{ marginTop: '40px', display: 'flex', justifyContent: 'flex-end' }}>
-            <div style={{ width: '300px', padding:'20px', background:'#f8f9fa', borderRadius:'8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'10px' }}>
-                    <span style={{color:'#666'}}>Sub Total:</span>
-                    <strong>₹{grandTotalProjectValue.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', fontWeight: 'bold' }}>
+                <div>
+                    Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '150px' }} />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'10px', paddingBottom:'10px', borderBottom:'1px solid #ddd' }}>
-                    <span style={{color:'#666'}}>GST ({gstPercent}%):</span>
-                    <span>₹{(grandTotalProjectValue * (gstPercent/100)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize:'18px', color: '#0056b3', fontWeight: 'bold' }}>
-                    <span>GRAND TOTAL:</span>
-                    <span>₹{(grandTotalProjectValue * (1 + gstPercent/100)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                <div>
+                    Dated: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '100px', textAlign: 'right' }} />
                 </div>
             </div>
-        </div>
+
+            <div style={{ marginBottom: '15px' }}>
+                <div>TO,</div>
+                <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', border:'none' }} />
+                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value); setBuyerName(e.target.value);}} style={{ ...editableStyle, fontWeight: 'bold', border:'none' }} />
+                <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...editableStyle, border:'none' }} />
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+                Dear Sir,
+            </div>
+
+            <div style={{ marginBottom: '15px', fontWeight: 'bold' }}>
+                SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', width: '80%', display: 'inline-block', border:'none' }} />
+            </div>
+
+            {/* BODY PARAGRAPHS */}
+            <div style={{ marginBottom: '10px' }}>
+                <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...editableStyle, minHeight: '40px', border: 'none' }} />
+            </div>
+            <div style={{ marginBottom: '10px' }}>
+                <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...editableStyle, minHeight: '40px', border: 'none' }} />
+            </div>
+            <div style={{ marginBottom: '15px' }}>
+                <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...editableStyle, minHeight: '40px', border: 'none' }} />
+            </div>
+
+            {/* TERMS SECTION */}
+            <div style={{ marginTop: '15px', borderTop: '1px solid #ccc', paddingTop: '10px' }}>
+                <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '10px' }}>TERMS AND CONDITIONS</div>
+
+                <div style={sectionTitleStyle}>TAXES:</div>
+                <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...editableStyle, border: 'none' }} />
+
+                <div style={sectionTitleStyle}>SUPPLY AND INSTALLATION:</div>
+                <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...editableStyle, minHeight: '60px', border: 'none' }} />
+
+                <div style={sectionTitleStyle}>WARRANTY:</div>
+                <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...editableStyle, border: 'none' }} />
+
+                <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div>
+                <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...editableStyle, minHeight: '50px', border: 'none' }} />
+
+                <div style={sectionTitleStyle}>PAYMENT:</div>
+                <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...editableStyle, minHeight: '80px', border: 'none' }} />
+            </div>
+
+            <div style={{ marginTop: '30px' }}>
+                <div>Yours truly,</div>
+                <div style={{ fontWeight: 'bold', marginTop: '5px' }}>For United Biomedical Services,</div>
+                <div style={{ marginTop: '30px' }}>
+                    <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block' }} />
+                    <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block' }} />
+                </div>
+            </div>
+
+        </div> 
+        {/* END PAGE 1 */}
+
+
+        {/* ======================= PAGE BREAK ======================= */}
+        <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
+
+
+        {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
+        <div className="page-2" style={{ paddingTop: '10px' }}>
+            
+            <DocumentHeader />
+
+            <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+                <h2 style={{ margin: '0 0 5px 0', color: '#444' }}>QUOTATION DETAILS</h2>
+                <div style={{ fontSize: '12px' }}>Ref: {coverRef}</div>
+                <div style={{ fontSize: '12px' }}>Date: {coverDate}</div>
+            </div>
+
+            {/* QUOTE TABLE */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                    <tr style={{height:'30px'}}>
+                        <th style={{...headerStyle, width:'30px'}}>#</th>
+                        <th style={{...headerStyle, textAlign:'left', paddingLeft:'10px'}}>Item Description</th>
+                        {!isClientMode && (
+                            <>
+                                <th style={{...headerStyle, width:'50px', background:'#495057'}}>Fact.</th>
+                                <th style={{...headerStyle, width:'40px', background:'#495057'}}>Trn%</th>
+                                <th style={{...headerStyle, width:'40px', background:'#495057'}}>Trn.₹</th>
+                                <th style={{...headerStyle, width:'40px'}}>Fit</th>
+                                <th style={{...headerStyle, width:'40px'}}>Sadl</th>
+                                <th style={{...headerStyle, width:'40px'}}>Work</th>
+                                <th style={{...headerStyle, width:'50px', background:'#6c757d'}}>Total</th>
+                                <th style={{...headerStyle, width:'40px', background:'#adb5bd', color:'black'}}>Mrg%</th>
+                                <th style={{...headerStyle, width:'40px', background:'#adb5bd', color:'black'}}>Mrg.₹</th>
+                            </>
+                        )}
+                        <th style={{...headerStyle, width:'40px'}}>Qty</th>
+                        <th style={{...headerStyle, width:'40px'}}>Unit</th>
+                        <th style={{...headerStyle, width:'70px'}}>Rate</th>
+                        <th style={{...headerStyle, width:'80px'}}>Amount</th>
+                        {!isClientMode && (
+                            <>
+                                <th style={{...headerStyle, width:'50px', background:'#198754'}}>Pft.Marg</th>
+                                <th style={{...headerStyle, width:'40px', background:'#198754'}}>Pft.%</th>
+                                <th style={{...headerStyle, width:'60px', background:'#157347'}}>Gross</th>
+                                <th style={{...headerStyle, width:'20px', background:'#fff', color:'red'}}></th>
+                            </>
+                        )}
+                    </tr>
+                </thead>
+                
+                <tbody>
+                {categoryOrder.map((catId, catIndex) => {
+                    const category = productCatalog.find(c => c.id === catId);
+                    const catRows = rows.filter(r => r.categoryId === catId);
+                    
+                    let subTotalAmt = 0;
+                    let subTotalCost = 0;
+                    let subTotalGross = 0;
+
+                    catRows.forEach(r => {
+                        subTotalAmt += r.quotedPrice * r.qty;
+                        subTotalCost += r.internalCost * r.qty;
+                        subTotalGross += (r.quotedPrice - r.internalCost) * r.qty;
+                    });
+
+                    if (catRows.length === 0 && isClientMode) return null;
+
+                    return (
+                        <>
+                            <tr key={`cat-${catId}`} style={{ background: '#e9ecef' }}>
+                                <td colSpan={isClientMode ? 5 : 18} style={{ padding: '5px 10px', fontWeight: 'bold', color:'#333', borderBottom:'1px solid #dee2e6' }}>
+                                    <div style={{display:'flex', justifyContent:'space-between'}}>
+                                        <span>{category?.name}</span>
+                                        {!isClientMode && (
+                                            <div>
+                                                <button onClick={() => moveCategory(catIndex, 'up')} style={{cursor:'pointer', border:'none', background:'none'}}>⬆</button>
+                                                <button onClick={() => moveCategory(catIndex, 'down')} style={{cursor:'pointer', border:'none', background:'none'}}>⬇</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </td>
+                            </tr>
+
+                            {catRows.map((row, index) => {
+                                const actualProfit = row.quotedPrice - row.internalCost;
+                                const actualProfitPercent = row.internalCost > 0 ? (actualProfit / row.internalCost) * 100 : 0;
+                                const totalGross = actualProfit * row.qty;
+
+                                return (
+                                    <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
+                                        <td style={{ textAlign: 'center', padding:'4px' }}>{index + 1}</td>
+                                        <td style={{ padding:'4px' }}>{row.name}</td>
+                                        
+                                        {!isClientMode && (
+                                            <>
+                                                <td style={{padding:'2px'}}><input type="number" value={row.factoryPrice.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
+                                                <td style={{padding:'2px'}}><input type="number" value={row.transPercent} onChange={(e)=>updateRow(row.uid, 'transPercent', e.target.value)} style={inputStyle} /></td>
+                                                <td style={{padding:'2px'}}><input type="number" value={row.transAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'transAmt', e.target.value)} style={readOnlyStyle} tabIndex="-1" /></td>
+                                                <td style={{padding:'2px'}}><input type="number" value={row.fittingCost} onChange={(e)=>updateRow(row.uid, 'fittingCost', e.target.value)} style={inputStyle} /></td>
+                                                <td style={{padding:'2px'}}><input type="number" value={row.saddleCost} onChange={(e)=>updateRow(row.uid, 'saddleCost', e.target.value)} style={inputStyle} /></td>
+                                                <td style={{padding:'2px'}}><input type="number" value={row.workCost} onChange={(e)=>updateRow(row.uid, 'workCost', e.target.value)} style={inputStyle} /></td>
+                                                <td style={{padding:'2px', fontWeight:'bold', color:'#666', textAlign:'right'}}>{row.internalCost.toFixed(0)}</td>
+                                                <td style={{padding:'2px'}}><input type="number" value={row.marginPercent.toFixed(1)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={{...inputStyle, background:'#fff3cd', border:'1px solid #ffeeba'}} /></td>
+                                                <td style={{padding:'2px'}}><input type="number" value={row.marginAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'marginAmt', e.target.value)} style={inputStyle} /></td>
+                                            </>
+                                        )}
+
+                                        <td style={{padding:'2px'}}>
+                                            {isClientMode ? <div style={{textAlign:'center'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center'}} />}
+                                        </td>
+                                        <td style={{textAlign:'center', color:'#888'}}>{row.unit}</td>
+                                        
+                                        <td style={{padding:'2px'}}>
+                                            {isClientMode ? <div style={{textAlign:'right'}}>{row.quotedPrice.toFixed(2)}</div> : <input type="number" value={row.quotedPrice} onChange={(e)=>updateRow(row.uid, 'quotedPrice', e.target.value)} style={{...inputStyle, fontWeight:'bold', color:'#0056b3'}} />}
+                                        </td>
+                                        
+                                        <td style={{padding:'2px', textAlign:'right', fontWeight:'bold'}}>
+                                            {isClientMode ? (row.quotedPrice * row.qty).toLocaleString('en-IN') : <input type="number" value={(row.quotedPrice * row.qty).toFixed(2)} onChange={(e)=>handleRowAmountChange(row.uid, e.target.value)} style={{...readOnlyStyle, color:'#000'}} />}
+                                        </td>
+                                        
+                                        {!isClientMode && (
+                                            <>
+                                                <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#198754'}}>{actualProfit.toFixed(0)}</td>
+                                                <td style={{textAlign:'right', paddingRight:'5px', color: '#666'}}>{actualProfitPercent.toFixed(1)}%</td>
+                                                <td style={{textAlign:'right', paddingRight:'5px', fontWeight:'bold', color: totalGross < 0 ? 'red' : '#157347'}}>{totalGross.toFixed(0)}</td>
+                                                <td style={{textAlign:'center'}}><button onClick={()=>removeRow(row.uid)} style={{color:'#dc3545', border:'none', background:'none', cursor:'pointer'}}>×</button></td>
+                                            </>
+                                        )}
+                                    </tr>
+                                );
+                            })}
+
+                            {!isClientMode && (
+                                <tr style={{ background: '#f8f9fa', borderTop: '2px solid #dee2e6' }}>
+                                    <td colSpan={2} style={{textAlign:'right', padding:'5px', fontWeight:'bold', color:'#888', fontSize:'10px'}}>SECTION TOTAL:</td>
+                                    <td colSpan={7}></td>
+                                    <td colSpan={1} style={{textAlign:'right', padding:'5px', fontSize:'11px'}}>Cost: {subTotalCost.toFixed(0)}</td>
+                                    <td colSpan={4}></td>
+                                    <td style={{textAlign:'right', padding:'5px', fontWeight:'bold'}}>₹{subTotalAmt.toLocaleString('en-IN')}</td>
+                                    <td colSpan={2}></td>
+                                    <td style={{textAlign:'right', padding:'5px', fontWeight:'bold', color: subTotalGross < 0 ? 'red' : 'green'}}>{subTotalGross.toLocaleString('en-IN')}</td>
+                                    <td></td>
+                                </tr>
+                            )}
+                        </>
+                    );
+                })}
+                </tbody>
+            </table>
+
+            {/* GRAND TOTALS ON PAGE 2 */}
+            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ width: '300px', padding:'15px', background:'#f8f9fa', borderRadius:'8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'10px' }}>
+                        <span style={{color:'#666'}}>Sub Total:</span>
+                        <strong>₹{grandTotalProjectValue.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'10px', paddingBottom:'10px', borderBottom:'1px solid #ddd' }}>
+                        <span style={{color:'#666'}}>GST ({gstPercent}%):</span>
+                        <span>₹{(grandTotalProjectValue * (gstPercent/100)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize:'16px', color: '#0056b3', fontWeight: 'bold' }}>
+                        <span>GRAND TOTAL:</span>
+                        <span>₹{(grandTotalProjectValue * (1 + gstPercent/100)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div style={{ marginTop: '30px', borderTop:'1px solid #ccc', paddingTop:'10px' }}>
+                <div style={{ fontSize:'10px', color:'#666' }}>
+                    <strong>Note:</strong> Prices are valid for 30 days. E&OE.
+                </div>
+            </div>
+
+        </div> 
+        {/* END PAGE 2 */}
+
       </div>
 
-      {/* FOOTER BAR */}
+      {/* FOOTER BAR (INTERNAL CONTROLS) */}
       {!isClientMode && (
         <div style={{ position:'fixed', bottom:0, left:0, right:0, background: '#343a40', color:'white', padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow:'0 -2px 10px rgba(0,0,0,0.1)', zIndex: 999 }}>
           <div>
@@ -473,12 +569,8 @@ export default function Calculator() {
           <div style={{ textAlign: 'center', display:'flex', gap:'20px', alignItems:'center' }}>
              <div>
                  <div style={{ fontSize: '11px', color: '#adb5bd' }}>AVG MARGIN %</div>
-                 <input 
-                    type="number" 
-                    value={baseMarginPercent.toFixed(2)} 
-                    onChange={(e) => handleGlobalMarginChange(e.target.value)}
-                    style={{ width: '60px', textAlign: 'center', background:'#495057', color:'white', border:'none', padding:'5px', borderRadius:'4px', fontWeight:'bold' }}
-                />
+                 <input type="number" value={baseMarginPercent.toFixed(2)} onChange={(e) => handleGlobalMarginChange(e.target.value)}
+                    style={{ width: '60px', textAlign: 'center', background:'#495057', color:'white', border:'none', padding:'5px', borderRadius:'4px', fontWeight:'bold' }} />
              </div>
              <div>
                 <div style={{ fontSize: '11px', color: '#adb5bd' }}>NET PROFIT</div>
@@ -488,12 +580,8 @@ export default function Calculator() {
 
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '11px', color: '#adb5bd' }}>OVERRIDE TOTAL VALUE</div>
-            <input 
-              type="number" 
-              value={grandTotalProjectValue.toFixed(0)} 
-              onChange={(e) => handleGrandTotalChange(e.target.value)}
-              style={{ fontSize: '20px', width: '140px', textAlign: 'right', background:'white', color:'black', border:'none', padding:'4px 8px', borderRadius:'4px', fontWeight:'bold' }}
-            />
+            <input type="number" value={grandTotalProjectValue.toFixed(0)} onChange={(e) => handleGrandTotalChange(e.target.value)}
+              style={{ fontSize: '20px', width: '140px', textAlign: 'right', background:'white', color:'black', border:'none', padding:'4px 8px', borderRadius:'4px', fontWeight:'bold' }} />
           </div>
         </div>
       )}
