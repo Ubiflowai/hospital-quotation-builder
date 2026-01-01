@@ -17,12 +17,6 @@ export default function Calculator() {
   const [grandTotalProfit, setGrandTotalProfit] = useState(0);
   const [gstPercent, setGstPercent] = useState(18);
 
-  // --- STATE: VISUALS & STYLES (NEW) ---
-  const [logoUrl, setLogoUrl] = useState(null); // Stores the uploaded image
-  const [bodyFontSize, setBodyFontSize] = useState(10); // Default 10pt
-  const [bodyColor, setBodyColor] = useState("#000000"); // Default Black
-  const [isBodyBold, setIsBodyBold] = useState(false); // Default Normal weight
-
   // --- STATE: COVER LETTER CONTENT (Editable) ---
   const [coverRef, setCoverRef] = useState("UBS/78PL/MMCK");
   const [coverDate, setCoverDate] = useState("09-12-2025");
@@ -55,23 +49,17 @@ export default function Calculator() {
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef(null);
 
-  // --- HANDLER: IMAGE UPLOAD ---
-  const handleImageUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setLogoUrl(url);
-    }
-  };
-
   // --- CALCULATION LOGIC ---
   const calculateRow = (row, overrideMargin = null) => {
     const marginPct = overrideMargin !== null ? overrideMargin : row.marginPercent;
+    
     // Costs
     const transAmt = row.factoryPrice * (row.transPercent / 100);
     const internalCost = row.factoryPrice + transAmt + row.fittingCost + row.saddleCost + row.workCost;
+    
     // Margin
     const marginAmt = internalCost * (marginPct / 100);
+    
     // Quoted Price (Cost + Margin)
     const calculatedPrice = internalCost + marginAmt;
     
@@ -85,7 +73,7 @@ export default function Calculator() {
     };
   };
 
-  // --- HANDLERS (Standard) ---
+  // --- HANDLERS ---
   const handleCopperRateChange = (newRate) => {
       const rate = parseFloat(newRate) || 0;
       setCopperRate(rate);
@@ -217,7 +205,7 @@ export default function Calculator() {
     });
   }
 
-  // --- PDF GENERATION ---
+  // --- PDF GENERATION (UPDATED FOR MARGINS) ---
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
     const wasInClientMode = isClientMode;
@@ -226,7 +214,7 @@ export default function Calculator() {
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
-            margin: [5, 5, 5, 5], 
+            margin: [5, 5, 5, 5], // Updated: Compact margins
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 2, useCORS: true }, 
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -243,36 +231,23 @@ export default function Calculator() {
   const readOnlyStyle = { width: '100%', border: 'none', background: 'transparent', textAlign:'right', color:'#555', fontWeight:'500', fontSize:'11px' };
   const headerStyle = { background: '#343a40', color: 'white', textAlign: 'center', fontSize:'11px', padding:'5px 2px' };
   
-  // Dynamic styles for the editable areas
-  const dynamicTextStyle = {
-      width: '100%', 
-      border: '1px dashed #ccc', 
-      background: 'transparent', 
-      resize: 'vertical',
-      minHeight: '20px',
-      fontFamily: 'inherit',
-      // USER CONTROLLED STYLES:
-      fontSize: `${bodyFontSize}pt`,
-      color: bodyColor,
-      fontWeight: isBodyBold ? 'bold' : 'normal'
+  // Editable Textarea Style for Cover Letter
+  const editableStyle = {
+      width: '100%', border: '1px dashed #ccc', background: 'transparent', 
+      fontFamily: 'inherit', fontSize: 'inherit', padding: '2px', resize: 'vertical',
+      minHeight: '20px'
   };
-  
   const sectionTitleStyle = { fontSize: '10px', fontWeight: 'bold', textDecoration: 'underline', marginTop: '6px', marginBottom: '2px' };
 
-  // --- UPDATED HEADER (Dynamic) ---
+  // --- UPDATED HEADER (Uses Image) ---
   const DocumentHeader = () => (
     <div style={{ marginBottom: '10px', textAlign: 'center' }}>
-      {logoUrl ? (
-          <img 
-            src={logoUrl} 
-            alt="United Biomedical Services" 
-            style={{ width: '100%', height: 'auto', maxHeight: '140px', objectFit: 'contain' }} 
-          />
-      ) : (
-          <div style={{ padding:'20px', border:'2px dashed #ccc', color:'#999', background:'#f8f9fa' }}>
-              Upload Header Image using the controls above
-          </div>
-      )}
+      {/* Ensure you put the file 'header.png' in your project's PUBLIC folder */}
+      <img 
+        src="/header.png" 
+        alt="United Biomedical Services" 
+        style={{ width: '100%', height: 'auto', maxHeight: '120px', objectFit: 'contain' }} 
+      />
     </div>
   );
 
@@ -295,38 +270,6 @@ export default function Calculator() {
                  </button>
              </div>
         </div>
-
-        {/* MIDDLE ROW: VISUAL SETTINGS (New) */}
-        {!isClientMode && activeTab === 'cover' && (
-            <div style={{ display:'flex', gap:'20px', alignItems:'center', background:'#f1f3f5', padding:'10px', borderRadius:'6px' }}>
-                <div style={{ fontWeight:'bold', fontSize:'12px', color:'#555' }}>LETTER STYLE:</div>
-                
-                {/* Image Upload */}
-                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
-                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Header Img:</label>
-                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ fontSize:'11px' }} />
-                </div>
-
-                {/* Font Size */}
-                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
-                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Size:</label>
-                    <input type="number" value={bodyFontSize} onChange={(e) => setBodyFontSize(e.target.value)} style={{ width:'40px', padding:'2px' }} />
-                    <span style={{ fontSize:'11px' }}>pt</span>
-                </div>
-
-                {/* Color */}
-                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
-                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Color:</label>
-                    <input type="color" value={bodyColor} onChange={(e) => setBodyColor(e.target.value)} style={{ height:'25px', width:'30px', padding:'0', border:'none' }} />
-                </div>
-
-                {/* Bold */}
-                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
-                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Bold:</label>
-                    <input type="checkbox" checked={isBodyBold} onChange={(e) => setIsBodyBold(e.target.checked)} />
-                </div>
-            </div>
-        )}
 
         {/* BOTTOM ROW: GLOBAL SETTINGS */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
@@ -381,40 +324,40 @@ export default function Calculator() {
       <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', boxShadow: '0 5px 30px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
         
         {/* ======================= PAGE 1: COVERING LETTER (COMPACT) ======================= */}
-        <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.2', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
+        <div className="page-1" style={{ fontSize: '10pt', lineHeight: '1.2', color: '#000', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
             
             <DocumentHeader />
 
             {/* Reference Line - Compact */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: 'bold', fontSize: 'inherit' }}>
-                <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '150px', fontSize: 'inherit', color:'inherit' }} /></div>
-                <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '100px', textAlign: 'right', fontSize: 'inherit', color:'inherit' }} /></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontWeight: 'bold', fontSize: '10pt' }}>
+                <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '150px', fontSize: 'inherit' }} /></div>
+                <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '100px', textAlign: 'right', fontSize: 'inherit' }} /></div>
             </div>
 
             {/* To Section - Compact */}
             <div style={{ marginBottom: '8px' }}>
                 <div style={{fontWeight:'bold'}}>TO,</div>
-                <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
-                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
-                <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...dynamicTextStyle, border:'none', padding:'0' }} />
+                <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...editableStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...editableStyle, border:'none', padding:'0' }} />
             </div>
 
             <div style={{ marginBottom: '8px' }}>Dear Sir,</div>
 
             {/* Subject - Compact */}
             <div style={{ marginBottom: '8px', fontWeight: 'bold', textDecoration:'underline' }}>
-                SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', width: '85%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
+                SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...editableStyle, fontWeight: 'bold', width: '85%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
             </div>
 
             {/* BODY PARAGRAPHS - Removed minHeights to save space */}
             <div style={{ marginBottom: '6px' }}>
-                <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
             </div>
             <div style={{ marginBottom: '6px' }}>
-                <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
             </div>
             <div style={{ marginBottom: '8px' }}>
-                <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...editableStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
             </div>
 
             {/* TERMS SECTION - COMPACT LAYOUT (Grid style) */}
@@ -422,7 +365,7 @@ export default function Calculator() {
                 <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '5px', fontSize:'9pt' }}>TERMS AND CONDITIONS</div>
                 
                 {/* Use a smaller font for terms to ensure fit */}
-                <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', color:'#000', fontWeight:'normal' }}>
+                <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
                     
                     {/* Column 1 */}
                     <div>
@@ -452,8 +395,8 @@ export default function Calculator() {
                 <div>Yours truly,</div>
                 <div style={{ fontWeight: 'bold' }}>For United Biomedical Services,</div>
                 <div style={{ marginTop: '20px' }}>
-                    <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block', fontSize:'11pt', width:'100%' }} />
-                    <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block', fontSize:'10pt', width:'100%' }} />
+                    <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block', fontSize:'11pt' }} />
+                    <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block', fontSize:'10pt' }} />
                 </div>
             </div>
         </div> 
