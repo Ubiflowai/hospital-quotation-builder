@@ -3,17 +3,19 @@ export const productCatalog = [
     "id": 1000,
     "name": "Copper pipe",
     "items": [
-      { "id": 1, "name": "10mm", "factoryPrice": 281.94, "unit": "nos" },
-      { "id": 2, "name": "12mm", "factoryPrice": 453.39, "unit": "nos" },
-      { "id": 3, "name": "15mm", "factoryPrice": 678.18, "unit": "nos" },
-      { "id": 4, "name": "22mm", "factoryPrice": 869.95, "unit": "nos" },
-      { "id": 5, "name": "28mm", "factoryPrice": 1447.8, "unit": "nos" },
-      { "id": 6, "name": "35mm", "factoryPrice": 1747.52, "unit": "nos" },
-      { "id": 7, "name": "42mm", "factoryPrice": 2810.51, "unit": "nos" },
-      { "id": 8, "name": "54mm", "factoryPrice": 5288.28, "unit": "nos" },
-      { "id": 9, "name": "76mm", "factoryPrice": 9411.97, "unit": "nos" },
-      { "id": 10, "name": "108mm", "factoryPrice": 281.94, "unit": "nos" },
-      { "id": 11, "name": "12mm conseal", "factoryPrice": 453.39, "unit": "nos" },
+      { "id": 1, "name": "10mm", "weight": 0.222, "unit": "mtr" },
+      { "id": 2, "name": "12mm", "weight": 0.222, "unit": "mtr" },
+      { "id": 3, "name": "15mm", "weight": 0.357, "unit": "mtr" },
+      { "id": 4, "name": "22mm", "weight": 0.534, "unit": "mtr" },
+      { "id": 5, "name": "28mm", "weight": 0.685, "unit": "mtr" },
+      { "id": 6, "name": "35mm", "weight": 1.140, "unit": "mtr" },
+      { "id": 7, "name": "42mm", "weight": 1.376, "unit": "mtr" },
+      { "id": 8, "name": "54mm", "weight": 2.213, "unit": "mtr" },
+      { "id": 9, "name": "76mm", "weight": 4.164, "unit": "mtr" },
+      { "id": 10, "name": "108mm", "weight": 7.411, "unit": "mtr" },
+      
+      // Items without specific weights use fixed factoryPrice
+      { "id": 11, "name": "12mm conseal", "factoryPrice": 453.39, "unit": "mtr" },
       { "id": 12, "name": "Hanging support", "factoryPrice": 75.0, "unit": "nos" }
     ]
   },

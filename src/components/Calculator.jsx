@@ -8,31 +8,28 @@ export default function Calculator() {
   const [categoryOrder, setCategoryOrder] = useState([]); 
   
   // GLOBAL DRIVERS
-  const [copperRate, setCopperRate] = useState(800); // Default Base Rate (e.g., ₹800/kg)
-  const [baseCopperRate] = useState(800); // The rate at which your CSV prices were originally set
-  
+  const [copperRate, setCopperRate] = useState(1270); // Default to Market Rate
   const [baseMarginPercent, setBaseMarginPercent] = useState(20);
+  
   const [grandTotalCost, setGrandTotalCost] = useState(0);
   const [grandTotalProjectValue, setGrandTotalProjectValue] = useState(0);
   const [grandTotalProfit, setGrandTotalProfit] = useState(0);
   const [gstPercent, setGstPercent] = useState(18);
 
-  // HEADER META
+  // META
   const [quoteNo, setQuoteNo] = useState("397");
   const [quoteDate, setQuoteDate] = useState(new Date().toISOString().slice(0,10));
   const [buyerName, setBuyerName] = useState("Govt Medical College Hospital Thrissur");
   const [buyerAddress, setBuyerAddress] = useState("Kerala, Code: 32");
   
-  // VIEW
   const [isClientMode, setIsClientMode] = useState(false);
   const pdfRef = useRef();
 
-  // SEARCH
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef(null);
 
-  // --- HELPER: ROW MATH ---
+  // --- MATH HELPER ---
   const calculateRow = (row, overrideMargin = null) => {
     const marginPct = overrideMargin !== null ? overrideMargin : row.marginPercent;
     
@@ -40,7 +37,7 @@ export default function Calculator() {
     const transAmt = row.factoryPrice * (row.transPercent / 100);
     const internalCost = row.factoryPrice + transAmt + row.fittingCost + row.saddleCost + row.workCost;
     
-    // 2. Margin Amount
+    // 2. Margin
     const marginAmt = internalCost * (marginPct / 100);
     
     // 3. Price
@@ -56,28 +53,27 @@ export default function Calculator() {
     };
   };
 
-  // --- 1. COPPER RATE LOGIC ---
+  // --- 1. COPPER RATE UPDATE ---
   const handleCopperRateChange = (newRate) => {
       const rate = parseFloat(newRate) || 0;
       setCopperRate(rate);
 
       // Update only "Copper pipe" items (Category ID 1000)
-      const multiplier = rate / baseCopperRate;
-
       setRows(rows.map(row => {
           if (row.categoryId === 1000) {
-              // Find original base price from catalog to avoid compounding errors
-              const originalItem = productCatalog.find(c => c.id === 1000)?.items.find(i => i.id === row.id);
-              const originalPrice = originalItem ? originalItem.factoryPrice : row.factoryPrice;
+              const catalogItem = productCatalog.find(c => c.id === 1000)?.items.find(i => i.id === row.id);
               
-              const newFactoryPrice = originalPrice * multiplier;
-              return calculateRow({ ...row, factoryPrice: newFactoryPrice }, null);
+              // Only update if it has a weight property (skips fixed items like supports)
+              if (catalogItem && catalogItem.weight !== undefined) {
+                   const newFactoryPrice = catalogItem.weight * rate;
+                   return calculateRow({ ...row, factoryPrice: newFactoryPrice }, null);
+              }
           }
           return row;
       }));
   };
 
-  // --- 2. ADD / REMOVE ---
+  // --- 2. ADD ROW ---
   const addRow = (productId, categoryId) => {
     const category = productCatalog.find(c => c.id === categoryId);
     const product = category?.items.find(p => p.id === productId);
@@ -87,10 +83,12 @@ export default function Calculator() {
         setCategoryOrder([...categoryOrder, categoryId]);
     }
 
-    // Determine Factory Price (Apply Copper Multiplier if needed)
-    let startPrice = product.factoryPrice;
-    if (categoryId === 1000) {
-        startPrice = startPrice * (copperRate / baseCopperRate);
+    // Determine Start Price
+    let startPrice = product.factoryPrice || 0;
+    
+    // If Item has Weight, Calculate Price based on Current Rate
+    if (product.weight !== undefined) {
+        startPrice = product.weight * copperRate;
     }
 
     const newRowRaw = {
@@ -101,7 +99,7 @@ export default function Calculator() {
       hsn: "9018",
       unit: product.unit,
       qty: 1,
-      factoryPrice: startPrice, // Dynamic Start Price
+      factoryPrice: startPrice,
       transPercent: 2,
       fittingCost: 0,
       saddleCost: 0,
@@ -115,31 +113,18 @@ export default function Calculator() {
     setShowDropdown(false);
   };
 
-  const removeRow = (uid) => {
-    setRows(rows.filter(r => r.uid !== uid));
-  };
+  // --- 3. STANDARD FUNCTIONS ---
+  const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
 
-  // --- 3. UPDATES (Single Row) ---
   const updateRow = (uid, field, value) => {
     const val = value === '' ? 0 : parseFloat(value);
-    
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
-        
         const updated = { ...row, [field]: val };
 
-        // Special Logic
-        if (field === 'factoryPrice') {
-            // Just update value, the calculateRow will handle the rest
-        }
-        else if (field === 'transPercent') {
-             // calculateRow handles transAmt update
-        } 
-        else if (field === 'transAmt') {
-             updated.transPercent = row.factoryPrice > 0 ? (val / row.factoryPrice) * 100 : 0;
-        }
+        if (field === 'factoryPrice') { /* Manual Override */ }
+        else if (field === 'transAmt') { updated.transPercent = row.factoryPrice > 0 ? (val / row.factoryPrice) * 100 : 0; }
         else if (field === 'quotedPrice') {
-            // Reverse Engineer Margin
             const internalCost = row.internalCost;
             if (internalCost > 0) {
                 const newMarginAmt = val - internalCost;
@@ -148,33 +133,23 @@ export default function Calculator() {
             }
             return updated; 
         }
-
         return calculateRow(updated, null); 
     }));
   };
 
-  // Reverse Calc from "Amount"
   const handleRowAmountChange = (uid, newAmount) => {
       const amount = parseFloat(newAmount) || 0;
       setRows(rows.map(row => {
           if (row.uid !== uid) return row;
           const qty = row.qty || 1;
           const newRate = amount / qty;
-          
           const internalCost = row.internalCost;
           const newMarginAmt = newRate - internalCost;
           const newMarginPercent = internalCost > 0 ? (newMarginAmt / internalCost) * 100 : 0;
-
-          return {
-              ...row,
-              quotedPrice: newRate,
-              marginAmt: newMarginAmt,
-              marginPercent: newMarginPercent
-          };
+          return { ...row, quotedPrice: newRate, marginAmt: newMarginAmt, marginPercent: newMarginPercent };
       }));
   };
 
-  // --- 4. GLOBAL UPDATES ---
   const handleGlobalMarginChange = (newVal) => {
       const margin = parseFloat(newVal) || 0;
       setBaseMarginPercent(margin);
@@ -183,39 +158,25 @@ export default function Calculator() {
 
   const handleGrandTotalChange = (newTotal) => {
       const total = parseFloat(newTotal) || 0;
-      if (grandTotalCost <= 0) {
-          setGrandTotalProjectValue(total);
-          return;
-      }
+      if (grandTotalCost <= 0) { setGrandTotalProjectValue(total); return; }
       const newMargin = ((total / grandTotalCost) - 1) * 100;
       setBaseMarginPercent(newMargin);
       setRows(rows.map(row => calculateRow(row, newMargin)));
   };
 
-  // --- 5. EFFECTS ---
   useEffect(() => {
-      let costSum = 0;
-      let valueSum = 0;
-      rows.forEach(r => {
-          costSum += r.internalCost * r.qty;
-          valueSum += r.quotedPrice * r.qty;
-      });
-      setGrandTotalCost(costSum);
-      setGrandTotalProjectValue(valueSum);
-      setGrandTotalProfit(valueSum - costSum);
+      let costSum = 0; let valueSum = 0;
+      rows.forEach(r => { costSum += r.internalCost * r.qty; valueSum += r.quotedPrice * r.qty; });
+      setGrandTotalCost(costSum); setGrandTotalProjectValue(valueSum); setGrandTotalProfit(valueSum - costSum);
   }, [rows]);
 
   const moveCategory = (index, direction) => {
     const newOrder = [...categoryOrder];
-    if (direction === 'up' && index > 0) {
-        [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
-    } else if (direction === 'down' && index < newOrder.length - 1) {
-        [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
-    }
+    if (direction === 'up' && index > 0) { [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]]; } 
+    else if (direction === 'down' && index < newOrder.length - 1) { [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]]; }
     setCategoryOrder(newOrder);
   };
 
-  // --- 6. SEARCH ---
   const searchResults = [];
   if (searchTerm.length > 0) {
     productCatalog.forEach(cat => {
@@ -227,7 +188,6 @@ export default function Calculator() {
     });
   }
 
-  // --- 7. PDF ---
   const handleDownloadPDF = () => {
     setIsClientMode(true);
     setTimeout(() => {
@@ -251,7 +211,7 @@ export default function Calculator() {
         {/* COPPER RATE CONTROL */}
         {!isClientMode && (
              <div style={{ display: 'flex', alignItems: 'center', background: '#fff3cd', padding: '5px 15px', borderRadius: '20px', border:'1px solid #ffeeba' }}>
-                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#856404', marginRight: '10px' }}>Copper Material Rate:</span>
+                <span style={{ fontSize: '14px', fontWeight: 'bold', color: '#856404', marginRight: '10px' }}>Copper Market Rate:</span>
                 <input 
                     type="number" 
                     value={copperRate} 
@@ -283,18 +243,23 @@ export default function Calculator() {
             />
             {showDropdown && searchResults.length > 0 && (
                 <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', maxHeight: '400px', overflowY: 'auto', border: '1px solid #ccc', zIndex: 1000, boxShadow: '0 10px 20px rgba(0,0,0,0.15)', borderRadius:'0 0 8px 8px' }}>
-                    {searchResults.map((item, idx) => (
-                        <div key={idx} onClick={() => addRow(item.id, item.categoryId)} 
-                             style={{ padding: '12px 20px', borderBottom: '1px solid #f1f1f1', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
-                             onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
-                             onMouseLeave={(e) => e.currentTarget.style.background = 'white'}>
-                            <div>
-                                <span style={{ fontWeight: 'bold', display:'block', fontSize:'12px', color:'#007bff' }}>{item.categoryName}</span>
-                                <span style={{ fontSize: '15px', color:'#333' }}>{item.name}</span>
+                    {searchResults.map((item, idx) => {
+                        let displayPrice = item.factoryPrice;
+                        if(item.weight !== undefined) displayPrice = item.weight * copperRate;
+
+                        return (
+                            <div key={idx} onClick={() => addRow(item.id, item.categoryId)} 
+                                style={{ padding: '12px 20px', borderBottom: '1px solid #f1f1f1', cursor: 'pointer', display: 'flex', justifyContent: 'space-between' }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}>
+                                <div>
+                                    <span style={{ fontWeight: 'bold', display:'block', fontSize:'12px', color:'#007bff' }}>{item.categoryName}</span>
+                                    <span style={{ fontSize: '15px', color:'#333' }}>{item.name}</span>
+                                </div>
+                                <div style={{ color: '#666', fontSize:'14px' }}>Base: ₹{displayPrice?.toFixed(0)}</div>
                             </div>
-                            <div style={{ color: '#666', fontSize:'14px' }}>Base: ₹{item.factoryPrice.toFixed(0)}</div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -365,7 +330,6 @@ export default function Calculator() {
                 // SUBSECTION TOTALS
                 let subTotal = 0;
                 let subCost = 0;
-                
                 catRows.forEach(r => {
                     subTotal += r.quotedPrice * r.qty;
                     subCost += r.internalCost * r.qty;
@@ -375,7 +339,6 @@ export default function Calculator() {
 
                 return (
                     <>
-                        {/* CATEGORY HEADER ROW */}
                         <tr key={`cat-${catId}`} style={{ background: '#e9ecef' }}>
                             <td colSpan={isClientMode ? 5 : 15} style={{ padding: '8px 10px', fontWeight: 'bold', color:'#333', borderBottom:'1px solid #dee2e6' }}>
                                 <div style={{display:'flex', justifyContent:'space-between'}}>
@@ -390,7 +353,6 @@ export default function Calculator() {
                             </td>
                         </tr>
 
-                        {/* ITEM ROWS */}
                         {catRows.map((row, index) => (
                             <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
                                 <td style={{ textAlign: 'center', padding:'8px' }}>{index + 1}</td>
@@ -398,7 +360,7 @@ export default function Calculator() {
                                 
                                 {!isClientMode && (
                                     <>
-                                        <td style={{padding:'4px'}}><input type="number" value={row.factoryPrice} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
+                                        <td style={{padding:'4px'}}><input type="number" value={row.factoryPrice.toFixed(2)} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
                                         <td style={{padding:'4px'}}><input type="number" value={row.transPercent} onChange={(e)=>updateRow(row.uid, 'transPercent', e.target.value)} style={inputStyle} /></td>
                                         <td style={{padding:'4px'}}><input type="number" value={row.transAmt.toFixed(2)} onChange={(e)=>updateRow(row.uid, 'transAmt', e.target.value)} style={readOnlyStyle} tabIndex="-1" /></td>
                                         <td style={{padding:'4px'}}><input type="number" value={row.fittingCost} onChange={(e)=>updateRow(row.uid, 'fittingCost', e.target.value)} style={inputStyle} /></td>
@@ -418,7 +380,6 @@ export default function Calculator() {
                                 </td>
                                 <td style={{textAlign:'center', color:'#888'}}>{row.unit}</td>
                                 
-                                {/* RATE */}
                                 <td style={{padding:'4px'}}>
                                     {isClientMode ? 
                                         <div style={{textAlign:'right'}}>{row.quotedPrice.toFixed(2)}</div> : 
@@ -426,7 +387,6 @@ export default function Calculator() {
                                     }
                                 </td>
                                 
-                                {/* AMOUNT */}
                                 <td style={{padding:'4px', textAlign:'right', fontWeight:'bold'}}>
                                     {isClientMode ? 
                                         (row.quotedPrice * row.qty).toLocaleString('en-IN') : 
@@ -442,7 +402,6 @@ export default function Calculator() {
                             </tr>
                         ))}
 
-                        {/* SECTION FOOTER */}
                         {!isClientMode && (
                             <tr style={{ background: '#f8f9fa', borderTop: '2px solid #dee2e6' }}>
                                 <td colSpan={2} style={{textAlign:'right', padding:'5px', fontWeight:'bold', color:'#888', fontSize:'11px'}}>SECTION TOTAL:</td>
@@ -476,7 +435,6 @@ export default function Calculator() {
                 </div>
             </div>
         </div>
-
       </div>
 
       {/* FIXED INTERNAL CONTROLS */}
