@@ -222,7 +222,7 @@ export default function Calculator() {
     });
   }
 
-  // --- PDF GENERATION (LANDSCAPE) ---
+  // --- PDF GENERATION ---
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
     const wasInClientMode = isClientMode;
@@ -231,7 +231,7 @@ export default function Calculator() {
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
-            margin: [5, 5, 5, 5], 
+            margin: [2, 2, 2, 2], // MINIMAL MARGINS TO MAXIMIZE WIDTH
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 3, useCORS: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, 
@@ -243,31 +243,35 @@ export default function Calculator() {
     }, 500);
   };
 
-  // --- MODERN STYLES ---
+  // --- STYLES ---
   const tableHeaderStyle = { 
       background: '#f8f9fa', 
       color: '#555', 
       textTransform: 'uppercase', 
       fontSize:'9px', 
       fontWeight: 'bold', 
-      padding:'8px 4px', 
+      padding:'4px 2px', 
       borderBottom:'2px solid #ddd',
       textAlign: 'center',
-      letterSpacing: '0.5px'
+      letterSpacing: '0.5px',
+      whiteSpace: 'nowrap'
   };
 
+  // UPDATED: Fixed widths to ensure everything fits perfectly
   const inputStyle = { 
       width: '100%', 
       border: 'none', 
       borderBottom: '1px solid #eee', 
       background: 'transparent', 
-      padding: '4px 0', 
+      padding: '0', 
+      margin: '0',
       borderRadius: '0', 
       textAlign:'center', 
-      fontSize:'12px',
+      fontSize:'10px', // Smaller font for inputs to fit numbers
       color: '#333',
       outline: 'none',
-      boxSizing: 'border-box'
+      boxSizing: 'border-box',
+      height: '20px'
   };
 
   const readOnlyStyle = { 
@@ -429,57 +433,39 @@ export default function Calculator() {
                 
                 {/* ======================= PAGE 1: COVERING LETTER ======================= */}
                 <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.4', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
-                    
                     <DocumentHeader />
-
+                    {/* (Cover Letter Content remains the same as previous steps, compacted) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontWeight: '600', fontSize: 'inherit' }}>
                         <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                         <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
-
                     <div style={{ marginBottom: '20px' }}>
                         <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
                         <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
                         <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
                         <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...dynamicTextStyle, border:'none', padding:'0' }} />
                     </div>
-
                     <div style={{ marginBottom: '15px' }}>Dear Sir,</div>
-
                     <div style={{ marginBottom: '15px', fontWeight: 'bold', textDecoration:'underline' }}>
                         SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', width: '90%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
                     </div>
-
-                    <div style={{ marginBottom: '10px' }}>
-                        <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
-                    </div>
-                    <div style={{ marginBottom: '10px' }}>
-                        <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
-                    </div>
-                    <div style={{ marginBottom: '20px' }}>
-                        <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
-                    </div>
-
+                    <div style={{ marginBottom: '10px' }}><textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} /></div>
+                    <div style={{ marginBottom: '10px' }}><textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} /></div>
+                    <div style={{ marginBottom: '20px' }}><textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} /></div>
                     <div style={{ marginTop: '10px', borderTop: '2px solid #333', paddingTop: '10px' }}>
                         <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '10px', fontSize:'10pt' }}>TERMS AND CONDITIONS</div>
                         <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', color:'#000', fontWeight:'normal' }}>
                             <div>
-                                <div style={sectionTitleStyle}>TAXES:</div>
-                                <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
-                                <div style={sectionTitleStyle}>WARRANTY:</div>
-                                <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
-                                <div style={sectionTitleStyle}>PAYMENT:</div>
-                                <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={5} />
+                                <div style={sectionTitleStyle}>TAXES:</div><textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+                                <div style={sectionTitleStyle}>WARRANTY:</div><textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+                                <div style={sectionTitleStyle}>PAYMENT:</div><textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={5} />
                             </div>
                             <div>
-                                <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div>
-                                <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={6} />
-                                <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div>
-                                <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={4} />
+                                <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div><textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={6} />
+                                <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div><textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={4} />
                             </div>
                         </div>
                     </div>
-
                     <div style={{ marginTop: '30px' }}>
                         <div>Yours truly,</div>
                         <div style={{ fontWeight: 'bold', marginTop:'5px' }}>For United Biomedical Services,</div>
@@ -503,34 +489,34 @@ export default function Calculator() {
                         <div style={{ fontSize: '12px', color:'#666' }}>Date: {coverDate}</div>
                     </div>
 
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout:'fixed' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout:'fixed' }}>
                         <thead>
                             <tr style={{height:'35px'}}>
-                                <th style={{...tableHeaderStyle, width:'30px'}}>#</th>
-                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'10px', width:'auto'}}>Description</th>
+                                <th style={{...tableHeaderStyle, width:'25px'}}>#</th>
+                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'5px', width:'auto'}}>Description</th>
                                 {!isClientMode && (
                                     <>
-                                        <th style={{...tableHeaderStyle, width:'80px', background:'#f3f3f3'}}>Base</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Trn%</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Base</th>
+                                        <th style={{...tableHeaderStyle, width:'35px', background:'#f3f3f3'}}>Trn%</th>
                                         <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Trn.₹</th>
-                                        <th style={{...tableHeaderStyle, width:'80px', background:'#f3f3f3'}}>Fit</th>
-                                        <th style={{...tableHeaderStyle, width:'80px', background:'#f3f3f3'}}>Sadl</th>
-                                        <th style={{...tableHeaderStyle, width:'80px', background:'#f3f3f3'}}>Work</th>
-                                        <th style={{...tableHeaderStyle, width:'100px', background:'#e9ecef'}}>Total</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Mrg%</th>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#e9ecef'}}>Mrg.₹</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Fit</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Sadl</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Work</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#e9ecef'}}>Total</th>
+                                        <th style={{...tableHeaderStyle, width:'35px', background:'#e9ecef'}}>Mrg%</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Mrg.₹</th>
                                     </>
                                 )}
-                                <th style={{...tableHeaderStyle, width:'50px'}}>Qty</th>
-                                <th style={{...tableHeaderStyle, width:'50px'}}>Unit</th>
-                                <th style={{...tableHeaderStyle, width:'100px'}}>Rate</th>
-                                <th style={{...tableHeaderStyle, width:'120px'}}>Amount</th>
+                                <th style={{...tableHeaderStyle, width:'35px'}}>Qty</th>
+                                <th style={{...tableHeaderStyle, width:'35px'}}>Unit</th>
+                                <th style={{...tableHeaderStyle, width:'70px'}}>Rate</th>
+                                <th style={{...tableHeaderStyle, width:'80px'}}>Amount</th>
                                 {!isClientMode && (
                                     <>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e6fffa', color:'#006644'}}>P.%</th>
-                                        <th style={{...tableHeaderStyle, width:'70px', background:'#ccfce3', color:'#006644'}}>Gross</th>
-                                        <th style={{...tableHeaderStyle, width:'30px', background:'#fff', borderBottom:'none'}}></th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
+                                        <th style={{...tableHeaderStyle, width:'35px', background:'#e6fffa', color:'#006644'}}>P.%</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#ccfce3', color:'#006644'}}>Gross</th>
+                                        <th style={{...tableHeaderStyle, width:'25px', background:'#fff', borderBottom:'none'}}></th>
                                     </>
                                 )}
                             </tr>
@@ -547,7 +533,7 @@ export default function Calculator() {
                             return (
                                 <>
                                     <tr key={`cat-${catId}`}>
-                                        <td colSpan={isClientMode ? 5 : 18} style={{ padding: '15px 10px 5px 10px', fontWeight: 'bold', color:'#2c3e50', fontSize:'13px', borderBottom:'2px solid #eee' }}>
+                                        <td colSpan={isClientMode ? 5 : 18} style={{ padding: '10px 5px', fontWeight: 'bold', color:'#2c3e50', fontSize:'11px', borderBottom:'2px solid #eee' }}>
                                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                                                 <span>{category?.name}</span>
                                                 {!isClientMode && (
@@ -565,8 +551,8 @@ export default function Calculator() {
                                         const totalGross = actualProfit * row.qty;
                                         return (
                                             <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
-                                                <td style={{ textAlign: 'center', padding:'8px 4px', color:'#999' }}>{index + 1}</td>
-                                                <td style={{ padding:'8px 4px', fontWeight:'500' }}>{row.name}</td>
+                                                <td style={{ textAlign: 'center', padding:'4px', color:'#999' }}>{index + 1}</td>
+                                                <td style={{ padding:'4px', fontWeight:'500' }}>{row.name}</td>
                                                 {!isClientMode && (
                                                     <>
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.factoryPrice.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
@@ -575,27 +561,27 @@ export default function Calculator() {
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.fittingCost} onChange={(e)=>updateRow(row.uid, 'fittingCost', e.target.value)} style={inputStyle} /></td>
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.saddleCost} onChange={(e)=>updateRow(row.uid, 'saddleCost', e.target.value)} style={inputStyle} /></td>
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.workCost} onChange={(e)=>updateRow(row.uid, 'workCost', e.target.value)} style={inputStyle} /></td>
-                                                        <td style={{padding:'2px', background:'#f8f9fa', color:'#666', textAlign:'center', fontSize:'11px'}}>{row.internalCost.toFixed(0)}</td>
+                                                        <td style={{padding:'2px', background:'#f8f9fa', color:'#666', textAlign:'center', fontSize:'10px'}}>{row.internalCost.toFixed(0)}</td>
                                                         <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginPercent.toFixed(1)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={{...inputStyle, color:'#e67e22', fontWeight:'bold'}} /></td>
                                                         <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'marginAmt', e.target.value)} style={inputStyle} /></td>
                                                     </>
                                                 )}
                                                 <td style={{padding:'2px'}}>
-                                                    {isClientMode ? <div style={{textAlign:'center', padding:'8px 0'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center', fontWeight:'bold'}} />}
+                                                    {isClientMode ? <div style={{textAlign:'center', padding:'4px'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center', fontWeight:'bold'}} />}
                                                 </td>
-                                                <td style={{textAlign:'center', color:'#888', fontSize:'11px'}}>{row.unit}</td>
+                                                <td style={{textAlign:'center', color:'#888', fontSize:'10px'}}>{row.unit}</td>
                                                 <td style={{padding:'2px'}}>
-                                                    {isClientMode ? <div style={{textAlign:'right', padding:'8px 0'}}>{row.quotedPrice.toFixed(2)}</div> : <input type="number" value={row.quotedPrice} onChange={(e)=>updateRow(row.uid, 'quotedPrice', e.target.value)} style={{...inputStyle, fontWeight:'bold', color:'#2980b9'}} />}
+                                                    {isClientMode ? <div style={{textAlign:'right', padding:'4px'}}>{row.quotedPrice.toFixed(2)}</div> : <input type="number" value={row.quotedPrice} onChange={(e)=>updateRow(row.uid, 'quotedPrice', e.target.value)} style={{...inputStyle, fontWeight:'bold', color:'#2980b9'}} />}
                                                 </td>
                                                 <td style={{padding:'2px', textAlign:'right', fontWeight:'bold'}}>
                                                     {isClientMode ? (row.quotedPrice * row.qty).toLocaleString('en-IN') : <input type="number" value={(row.quotedPrice * row.qty).toFixed(2)} onChange={(e)=>handleRowAmountChange(row.uid, e.target.value)} style={{...readOnlyStyle, color:'#333'}} />}
                                                 </td>
                                                 {!isClientMode && (
                                                     <>
-                                                        <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#27ae60', background:'#f0fff4', fontSize:'11px'}}>{actualProfit.toFixed(0)}</td>
-                                                        <td style={{textAlign:'right', paddingRight:'5px', color: '#888', background:'#f0fff4', fontSize:'11px'}}>{actualProfitPercent.toFixed(1)}%</td>
+                                                        <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#27ae60', background:'#f0fff4', fontSize:'10px'}}>{actualProfit.toFixed(0)}</td>
+                                                        <td style={{textAlign:'right', paddingRight:'5px', color: '#888', background:'#f0fff4', fontSize:'10px'}}>{actualProfitPercent.toFixed(1)}%</td>
                                                         <td style={{textAlign:'right', paddingRight:'5px', fontWeight:'bold', color: totalGross < 0 ? 'red' : '#219150', background:'#e6fffa'}}>{totalGross.toFixed(0)}</td>
-                                                        <td style={{textAlign:'center'}}><button onClick={()=>removeRow(row.uid)} style={{color:'#e74c3c', border:'none', background:'none', cursor:'pointer', fontSize:'16px', lineHeight:'1'}}>×</button></td>
+                                                        <td style={{textAlign:'center'}}><button onClick={()=>removeRow(row.uid)} style={{color:'#e74c3c', border:'none', background:'none', cursor:'pointer', fontSize:'14px', lineHeight:'1'}}>×</button></td>
                                                     </>
                                                 )}
                                             </tr>
@@ -603,13 +589,13 @@ export default function Calculator() {
                                     })}
                                     {!isClientMode && (
                                         <tr style={{ background: '#fff', borderTop: '2px solid #eee' }}>
-                                            <td colSpan={2} style={{textAlign:'right', padding:'8px', fontWeight:'bold', color:'#aaa', fontSize:'11px', textTransform:'uppercase'}}>Subtotal ({category.name}):</td>
+                                            <td colSpan={2} style={{textAlign:'right', padding:'8px', fontWeight:'bold', color:'#aaa', fontSize:'10px', textTransform:'uppercase'}}>Subtotal ({category.name}):</td>
                                             <td colSpan={7}></td>
-                                            <td colSpan={1} style={{textAlign:'right', padding:'8px', fontSize:'12px', color:'#777'}}>Cost: {subTotalCost.toFixed(0)}</td>
+                                            <td colSpan={1} style={{textAlign:'right', padding:'8px', fontSize:'10px', color:'#777'}}>Cost: {subTotalCost.toFixed(0)}</td>
                                             <td colSpan={4}></td>
-                                            <td style={{textAlign:'right', padding:'8px', fontWeight:'bold', fontSize:'13px'}}>₹{subTotalAmt.toLocaleString('en-IN')}</td>
+                                            <td style={{textAlign:'right', padding:'8px', fontWeight:'bold', fontSize:'11px'}}>₹{subTotalAmt.toLocaleString('en-IN')}</td>
                                             <td colSpan={2}></td>
-                                            <td style={{textAlign:'right', padding:'8px', fontWeight:'bold', color: subTotalGross < 0 ? 'red' : '#27ae60', fontSize:'12px'}}>{subTotalGross.toLocaleString('en-IN')}</td>
+                                            <td style={{textAlign:'right', padding:'8px', fontWeight:'bold', color: subTotalGross < 0 ? 'red' : '#27ae60', fontSize:'11px'}}>{subTotalGross.toLocaleString('en-IN')}</td>
                                             <td></td>
                                         </tr>
                                     )}
