@@ -222,7 +222,7 @@ export default function Calculator() {
     });
   }
 
-  // --- PDF GENERATION (UPDATED FOR LANDSCAPE) ---
+  // --- PDF GENERATION (LANDSCAPE) ---
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
     const wasInClientMode = isClientMode;
@@ -234,7 +234,7 @@ export default function Calculator() {
             margin: [5, 5, 5, 5], 
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 3, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, // SWITCHED TO LANDSCAPE
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, 
             pagebreak: { mode: ['css', 'legacy'] } 
         }).from(element).save().then(() => {
              setIsPdfGenerating(false);
@@ -267,7 +267,7 @@ export default function Calculator() {
       fontSize:'12px',
       color: '#333',
       outline: 'none',
-      boxSizing:'border-box'
+      boxSizing: 'border-box'
   };
 
   const readOnlyStyle = { 
@@ -503,29 +503,28 @@ export default function Calculator() {
                         <div style={{ fontSize: '12px', color:'#666' }}>Date: {coverDate}</div>
                     </div>
 
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', tableLayout:'fixed' }}>
                         <thead>
                             <tr style={{height:'35px'}}>
-                                {/* INCREASED WIDTHS HERE FOR BETTER VISIBILITY */}
                                 <th style={{...tableHeaderStyle, width:'30px'}}>#</th>
-                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'10px'}}>Description</th>
+                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'10px', width:'auto'}}>Description</th>
                                 {!isClientMode && (
                                     <>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Base</th>
+                                        <th style={{...tableHeaderStyle, width:'80px', background:'#f3f3f3'}}>Base</th>
                                         <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Trn%</th>
                                         <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Trn.₹</th>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Fit</th>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Sadl</th>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Work</th>
-                                        <th style={{...tableHeaderStyle, width:'70px', background:'#e9ecef'}}>Total</th>
+                                        <th style={{...tableHeaderStyle, width:'80px', background:'#f3f3f3'}}>Fit</th>
+                                        <th style={{...tableHeaderStyle, width:'80px', background:'#f3f3f3'}}>Sadl</th>
+                                        <th style={{...tableHeaderStyle, width:'80px', background:'#f3f3f3'}}>Work</th>
+                                        <th style={{...tableHeaderStyle, width:'100px', background:'#e9ecef'}}>Total</th>
                                         <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Mrg%</th>
                                         <th style={{...tableHeaderStyle, width:'60px', background:'#e9ecef'}}>Mrg.₹</th>
                                     </>
                                 )}
                                 <th style={{...tableHeaderStyle, width:'50px'}}>Qty</th>
                                 <th style={{...tableHeaderStyle, width:'50px'}}>Unit</th>
-                                <th style={{...tableHeaderStyle, width:'80px'}}>Rate</th>
-                                <th style={{...tableHeaderStyle, width:'100px'}}>Amount</th>
+                                <th style={{...tableHeaderStyle, width:'100px'}}>Rate</th>
+                                <th style={{...tableHeaderStyle, width:'120px'}}>Amount</th>
                                 {!isClientMode && (
                                     <>
                                         <th style={{...tableHeaderStyle, width:'60px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
