@@ -231,7 +231,7 @@ export default function Calculator() {
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
-            margin: [2, 2, 2, 2], // MINIMAL MARGINS TO MAXIMIZE WIDTH
+            margin: [2, 2, 2, 2], 
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 3, useCORS: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, 
@@ -244,20 +244,48 @@ export default function Calculator() {
   };
 
   // --- STYLES ---
+  
+  // Decide widths based on mode
+  // If Client Mode (Print): Use Strict A4 widths
+  // If Edit Mode: Use 'auto' or large minimum widths
+  const isPrint = isClientMode || isPdfGenerating;
+
+  const tableStyle = {
+      width: '100%',
+      borderCollapse: 'collapse',
+      fontSize: isPrint ? '10px' : '12px',
+      tableLayout: isPrint ? 'fixed' : 'auto', // Auto layout in edit mode allows columns to breathe
+  };
+
   const tableHeaderStyle = { 
       background: '#f8f9fa', 
       color: '#555', 
       textTransform: 'uppercase', 
-      fontSize:'9px', 
+      fontSize: isPrint ? '9px' : '11px', 
       fontWeight: 'bold', 
-      padding:'4px 2px', 
+      padding: isPrint ? '4px 2px' : '8px 10px', 
       borderBottom:'2px solid #ddd',
       textAlign: 'center',
       letterSpacing: '0.5px',
       whiteSpace: 'nowrap'
   };
 
-  // UPDATED: Fixed widths to ensure everything fits perfectly
+  // Column Width Logic
+  const getColWidth = (type) => {
+      if (!isPrint) return 'auto'; // In Edit mode, let the browser size it!
+      // In Print mode, force strict pixels
+      switch(type) {
+          case 'index': return '25px';
+          case 'desc': return 'auto'; // Takes remaining space
+          case 'cost': return '60px';
+          case 'small': return '35px';
+          case 'med': return '50px';
+          case 'rate': return '70px';
+          case 'amt': return '80px';
+          default: return 'auto';
+      }
+  };
+
   const inputStyle = { 
       width: '100%', 
       border: 'none', 
@@ -267,19 +295,14 @@ export default function Calculator() {
       margin: '0',
       borderRadius: '0', 
       textAlign:'center', 
-      fontSize:'10px', // Smaller font for inputs to fit numbers
+      fontSize: 'inherit',
       color: '#333',
       outline: 'none',
       boxSizing: 'border-box',
-      height: '20px'
+      height: '24px' // Taller touch target in edit mode
   };
 
-  const readOnlyStyle = { 
-      ...inputStyle, 
-      borderBottom: 'none', 
-      fontWeight:'600', 
-      color:'#444' 
-  };
+  const readOnlyStyle = { ...inputStyle, borderBottom: 'none', fontWeight:'600', color:'#444' };
   
   const dynamicTextStyle = {
       width: '100%', 
@@ -411,7 +434,7 @@ export default function Calculator() {
       )}
 
       {/* ===================================================================================== */}
-      {/* PDF DOCUMENT WRAPPER (LANDSCAPE 280mm)                                                */}
+      {/* PDF DOCUMENT WRAPPER                                                                  */}
       {/* ===================================================================================== */}
       
       <div style={{ 
@@ -427,45 +450,74 @@ export default function Calculator() {
               transform: `scale(${zoomLevel})`, 
               transformOrigin: 'top center',
               transition: 'transform 0.2s ease',
-              marginBottom: '100px'
+              marginBottom: '100px',
+              // IF not Client Mode, use FULL WIDTH
+              width: isPrint ? 'auto' : '95%' 
           }}>
-              <div ref={pdfRef} style={{ background: 'white', width: '280mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
+              <div ref={pdfRef} style={{ 
+                  background: 'white', 
+                  // IF Client/Print Mode: Fixed A4 Landscape (280mm), ELSE full width of container
+                  width: isPrint ? '280mm' : '100%', 
+                  minHeight: '210mm', 
+                  margin: '0 auto', 
+                  padding: isPrint ? '10mm' : '30px', 
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.1)', 
+                  boxSizing: 'border-box' 
+              }}>
                 
                 {/* ======================= PAGE 1: COVERING LETTER ======================= */}
                 <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.4', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
+                    
                     <DocumentHeader />
-                    {/* (Cover Letter Content remains the same as previous steps, compacted) */}
+
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontWeight: '600', fontSize: 'inherit' }}>
                         <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                         <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
+
                     <div style={{ marginBottom: '20px' }}>
                         <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
                         <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
                         <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
                         <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...dynamicTextStyle, border:'none', padding:'0' }} />
                     </div>
+
                     <div style={{ marginBottom: '15px' }}>Dear Sir,</div>
+
                     <div style={{ marginBottom: '15px', fontWeight: 'bold', textDecoration:'underline' }}>
                         SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', width: '90%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
                     </div>
-                    <div style={{ marginBottom: '10px' }}><textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} /></div>
-                    <div style={{ marginBottom: '10px' }}><textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} /></div>
-                    <div style={{ marginBottom: '20px' }}><textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} /></div>
+
+                    <div style={{ marginBottom: '10px' }}>
+                        <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>
+                        <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                    </div>
+
                     <div style={{ marginTop: '10px', borderTop: '2px solid #333', paddingTop: '10px' }}>
                         <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '10px', fontSize:'10pt' }}>TERMS AND CONDITIONS</div>
                         <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', color:'#000', fontWeight:'normal' }}>
                             <div>
-                                <div style={sectionTitleStyle}>TAXES:</div><textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
-                                <div style={sectionTitleStyle}>WARRANTY:</div><textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
-                                <div style={sectionTitleStyle}>PAYMENT:</div><textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={5} />
+                                <div style={sectionTitleStyle}>TAXES:</div>
+                                <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+                                <div style={sectionTitleStyle}>WARRANTY:</div>
+                                <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+                                <div style={sectionTitleStyle}>PAYMENT:</div>
+                                <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={5} />
                             </div>
                             <div>
-                                <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div><textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={6} />
-                                <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div><textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={4} />
+                                <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div>
+                                <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={6} />
+                                <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div>
+                                <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={4} />
                             </div>
                         </div>
                     </div>
+
                     <div style={{ marginTop: '30px' }}>
                         <div>Yours truly,</div>
                         <div style={{ fontWeight: 'bold', marginTop:'5px' }}>For United Biomedical Services,</div>
@@ -480,7 +532,7 @@ export default function Calculator() {
                     <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
                 )}
 
-                {/* ======================= PAGE 2: QUOTATION TABLE (LANDSCAPE) ======================= */}
+                {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
                 <div className="page-2" style={{ paddingTop: '10px', display: (activeTab === 'quote' || isPdfGenerating) ? 'block' : 'none' }}>
                     <DocumentHeader />
                     <div style={{ textAlign: 'right', marginBottom: '20px' }}>
@@ -489,34 +541,35 @@ export default function Calculator() {
                         <div style={{ fontSize: '12px', color:'#666' }}>Date: {coverDate}</div>
                     </div>
 
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', tableLayout:'fixed' }}>
+                    <table style={tableStyle}>
                         <thead>
                             <tr style={{height:'35px'}}>
-                                <th style={{...tableHeaderStyle, width:'25px'}}>#</th>
-                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'5px', width:'auto'}}>Description</th>
+                                <th style={{...tableHeaderStyle, width: getColWidth('index')}}>#</th>
+                                {/* In Edit Mode, Description gets minimum width to prevent crunching */}
+                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'5px', minWidth: isPrint ? 'auto' : '350px'}}>Description</th>
                                 {!isClientMode && (
                                     <>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Base</th>
-                                        <th style={{...tableHeaderStyle, width:'35px', background:'#f3f3f3'}}>Trn%</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Trn.₹</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Fit</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Sadl</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Work</th>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#e9ecef'}}>Total</th>
-                                        <th style={{...tableHeaderStyle, width:'35px', background:'#e9ecef'}}>Mrg%</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Mrg.₹</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('cost'), minWidth: '80px', background:'#f3f3f3'}}>Base</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('small'), minWidth: '60px', background:'#f3f3f3'}}>Trn%</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('med'), minWidth: '60px', background:'#f3f3f3'}}>Trn.₹</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('cost'), minWidth: '80px', background:'#f3f3f3'}}>Fit</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('cost'), minWidth: '80px', background:'#f3f3f3'}}>Sadl</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('cost'), minWidth: '80px', background:'#f3f3f3'}}>Work</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('cost'), minWidth: '100px', background:'#e9ecef'}}>Total</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('small'), minWidth: '60px', background:'#e9ecef'}}>Mrg%</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('med'), minWidth: '80px', background:'#e9ecef'}}>Mrg.₹</th>
                                     </>
                                 )}
-                                <th style={{...tableHeaderStyle, width:'35px'}}>Qty</th>
-                                <th style={{...tableHeaderStyle, width:'35px'}}>Unit</th>
-                                <th style={{...tableHeaderStyle, width:'70px'}}>Rate</th>
-                                <th style={{...tableHeaderStyle, width:'80px'}}>Amount</th>
+                                <th style={{...tableHeaderStyle, width: getColWidth('small')}}>Qty</th>
+                                <th style={{...tableHeaderStyle, width: getColWidth('small')}}>Unit</th>
+                                <th style={{...tableHeaderStyle, width: getColWidth('rate')}}>Rate</th>
+                                <th style={{...tableHeaderStyle, width: getColWidth('amt')}}>Amount</th>
                                 {!isClientMode && (
                                     <>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
-                                        <th style={{...tableHeaderStyle, width:'35px', background:'#e6fffa', color:'#006644'}}>P.%</th>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#ccfce3', color:'#006644'}}>Gross</th>
-                                        <th style={{...tableHeaderStyle, width:'25px', background:'#fff', borderBottom:'none'}}></th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('med'), minWidth: '80px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('small'), minWidth: '60px', background:'#e6fffa', color:'#006644'}}>P.%</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('rate'), minWidth: '80px', background:'#ccfce3', color:'#006644'}}>Gross</th>
+                                        <th style={{...tableHeaderStyle, width: getColWidth('small'), background:'#fff', borderBottom:'none'}}></th>
                                     </>
                                 )}
                             </tr>
@@ -533,7 +586,7 @@ export default function Calculator() {
                             return (
                                 <>
                                     <tr key={`cat-${catId}`}>
-                                        <td colSpan={isClientMode ? 5 : 18} style={{ padding: '10px 5px', fontWeight: 'bold', color:'#2c3e50', fontSize:'11px', borderBottom:'2px solid #eee' }}>
+                                        <td colSpan={isClientMode ? 5 : 18} style={{ padding: '15px 5px', fontWeight: 'bold', color:'#2c3e50', fontSize:'11px', borderBottom:'2px solid #eee' }}>
                                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                                                 <span>{category?.name}</span>
                                                 {!isClientMode && (
@@ -562,7 +615,7 @@ export default function Calculator() {
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.saddleCost} onChange={(e)=>updateRow(row.uid, 'saddleCost', e.target.value)} style={inputStyle} /></td>
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.workCost} onChange={(e)=>updateRow(row.uid, 'workCost', e.target.value)} style={inputStyle} /></td>
                                                         <td style={{padding:'2px', background:'#f8f9fa', color:'#666', textAlign:'center', fontSize:'10px'}}>{row.internalCost.toFixed(0)}</td>
-                                                        <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginPercent.toFixed(1)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={{...inputStyle, color:'#e67e22', fontWeight:'bold'}} /></td>
+                                                        <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginPercent.toFixed(1)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={inputStyle} /></td>
                                                         <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'marginAmt', e.target.value)} style={inputStyle} /></td>
                                                     </>
                                                 )}
