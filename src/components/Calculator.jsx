@@ -22,6 +22,9 @@ export default function Calculator() {
   const [bodyFontSize, setBodyFontSize] = useState(11); 
   const [bodyColor, setBodyColor] = useState("#000000"); 
   const [isBodyBold, setIsBodyBold] = useState(false); 
+  
+  // NEW: Zoom State
+  const [zoomLevel, setZoomLevel] = useState(1.1); // Start slightly zoomed in
 
   // --- STATE: COVER LETTER CONTENT ---
   const [coverRef, setCoverRef] = useState("UBS/78PL/MMCK");
@@ -63,6 +66,10 @@ export default function Calculator() {
       setLogoUrl(url);
     }
   };
+
+  // --- ZOOM HANDLERS ---
+  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2.0));
+  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
 
   // --- CALCULATION LOGIC ---
   const calculateRow = (row, overrideMargin = null) => {
@@ -220,24 +227,28 @@ export default function Calculator() {
     setIsPdfGenerating(true);
     const wasInClientMode = isClientMode;
     if (!isClientMode) setIsClientMode(true);
+    
+    // Temporarily reset zoom for print, then restore? 
+    // html2pdf takes the element as is. We need to handle the scale.
+    // The safest way is to clone the element or ensure style is standard during print.
+    // We will trust html2pdf's 'html2canvas' scale option which we set to 2.
 
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
             margin: [5, 5, 5, 5], 
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
-            html2canvas: { scale: 2, useCORS: true }, 
+            html2canvas: { scale: 3, useCORS: true }, // Higher scale for better quality
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak: { mode: ['css', 'legacy'] } 
         }).from(element).save().then(() => {
              setIsPdfGenerating(false);
              if (!wasInClientMode) setIsClientMode(false);
         });
-    }, 1000);
+    }, 500);
   };
 
   // --- MODERN STYLES ---
-  // Updated to be cleaner, no heavy borders, larger text
   const tableHeaderStyle = { 
       background: '#f8f9fa', 
       color: '#555', 
@@ -253,7 +264,7 @@ export default function Calculator() {
   const inputStyle = { 
       width: '100%', 
       border: 'none', 
-      borderBottom: '1px solid #eee', // subtle underline
+      borderBottom: '1px solid #eee', 
       background: 'transparent', 
       padding: '4px 0', 
       borderRadius: '0', 
@@ -272,7 +283,7 @@ export default function Calculator() {
   
   const dynamicTextStyle = {
       width: '100%', 
-      border: '1px dashed #e0e0e0', // lighter dash
+      border: '1px dashed #e0e0e0', 
       background: 'transparent', 
       resize: 'vertical',
       minHeight: '20px',
@@ -303,22 +314,32 @@ export default function Calculator() {
   );
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', padding: '20px', backgroundColor: '#e9ecef', minWidth: '1100px', paddingBottom:'150px' }}>
+    <div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#e9ecef', width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom:'120px' }}>
       
-      {/* --- CONTROL BAR --- */}
-      <div style={{ marginBottom: '20px', display: 'flex', flexDirection:'column', gap:'15px', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+      {/* --- CONTROL BAR (FULL WIDTH) --- */}
+      <div style={{ width: '95%', maxWidth: '1400px', marginTop: '20px', marginBottom: '20px', display: 'flex', flexDirection:'column', gap:'15px', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
         
-        {/* TOP ROW: TITLE & TABS */}
+        {/* TOP ROW: TITLE & ZOOM */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #f0f0f0', paddingBottom:'10px'}}>
              <h2 style={{ margin: 0, color: '#2c3e50', fontSize: '20px' }}>Quotation Manager</h2>
              
-             <div style={{ display:'flex', gap:'10px' }}>
-                 <button onClick={() => setActiveTab('cover')} style={{ padding: '8px 20px', cursor: 'pointer', borderRadius: '20px', fontWeight: '600', border: 'none', background: activeTab === 'cover' ? '#3498db' : '#f1f3f5', color: activeTab === 'cover' ? 'white' : '#555', transition: 'all 0.2s' }}>
-                    1. Edit Cover Letter
-                 </button>
-                 <button onClick={() => setActiveTab('quote')} style={{ padding: '8px 20px', cursor: 'pointer', borderRadius: '20px', fontWeight: '600', border: 'none', background: activeTab === 'quote' ? '#3498db' : '#f1f3f5', color: activeTab === 'quote' ? 'white' : '#555', transition: 'all 0.2s' }}>
-                    2. Edit Quotation
-                 </button>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                 {/* ZOOM CONTROLS */}
+                 <div style={{ display:'flex', alignItems:'center', gap:'5px', background:'#f1f3f5', padding:'5px 10px', borderRadius:'20px' }}>
+                     <span style={{ fontSize:'12px', fontWeight:'bold', color:'#777', marginRight:'5px' }}>ZOOM:</span>
+                     <button onClick={handleZoomOut} style={{ cursor:'pointer', width:'25px', height:'25px', borderRadius:'50%', border:'none', background:'#ddd', fontWeight:'bold' }}>-</button>
+                     <span style={{ fontSize:'12px', minWidth:'35px', textAlign:'center' }}>{Math.round(zoomLevel * 100)}%</span>
+                     <button onClick={handleZoomIn} style={{ cursor:'pointer', width:'25px', height:'25px', borderRadius:'50%', border:'none', background:'#ddd', fontWeight:'bold' }}>+</button>
+                 </div>
+
+                 <div style={{ display:'flex', gap:'10px' }}>
+                     <button onClick={() => setActiveTab('cover')} style={{ padding: '8px 20px', cursor: 'pointer', borderRadius: '20px', fontWeight: '600', border: 'none', background: activeTab === 'cover' ? '#3498db' : '#f1f3f5', color: activeTab === 'cover' ? 'white' : '#555', transition: 'all 0.2s' }}>
+                        1. Edit Cover Letter
+                     </button>
+                     <button onClick={() => setActiveTab('quote')} style={{ padding: '8px 20px', cursor: 'pointer', borderRadius: '20px', fontWeight: '600', border: 'none', background: activeTab === 'quote' ? '#3498db' : '#f1f3f5', color: activeTab === 'quote' ? 'white' : '#555', transition: 'all 0.2s' }}>
+                        2. Edit Quotation
+                     </button>
+                 </div>
              </div>
         </div>
 
@@ -369,9 +390,9 @@ export default function Calculator() {
 
       {/* --- SEARCH BAR --- */}
       {(!isClientMode && activeTab === 'quote') && (
-        <div ref={searchRef} style={{ position: 'relative', marginBottom: '20px' }}>
+        <div ref={searchRef} style={{ width: '95%', maxWidth: '1400px', position: 'relative', marginBottom: '20px' }}>
             <input type="text" placeholder="+ Add Item (Type name...)" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
-                style={{ width: '100%', padding: '15px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', fontSize: '16px', boxShadow:'0 2px 8px rgba(0,0,0,0.03)', outline:'none' }} />
+                style={{ width: '100%', padding: '15px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', fontSize: '16px', boxShadow:'0 2px 8px rgba(0,0,0,0.03)', outline:'none', boxSizing: 'border-box' }} />
             {showDropdown && searchResults.length > 0 && (
                 <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: 'white', maxHeight: '400px', overflowY: 'auto', border: '1px solid #eee', zIndex: 1000, boxShadow: '0 10px 30px rgba(0,0,0,0.1)', borderRadius:'8px' }}>
                     {searchResults.map((item, idx) => {
@@ -393,226 +414,244 @@ export default function Calculator() {
       )}
 
       {/* ===================================================================================== */}
-      {/* PDF DOCUMENT WRAPPER                                                                  */}
+      {/* PDF DOCUMENT WRAPPER WITH SCALING                                                     */}
       {/* ===================================================================================== */}
       
-      <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
-        
-        {/* ======================= PAGE 1: COVERING LETTER ======================= */}
-        <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.4', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
-            
-            <DocumentHeader />
+      {/* Scrollable Container */}
+      <div style={{ 
+          overflow: 'auto', 
+          width: '100%', 
+          display: 'flex', 
+          justifyContent: 'center', 
+          padding: '20px', 
+          boxSizing: 'border-box' 
+      }}>
+          {/* Zoom Wrapper */}
+          <div style={{ 
+              transform: `scale(${zoomLevel})`, 
+              transformOrigin: 'top center',
+              transition: 'transform 0.2s ease',
+              marginBottom: '100px' // Extra space for scrolling
+          }}>
+              <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
+                
+                {/* ======================= PAGE 1: COVERING LETTER ======================= */}
+                <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.4', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
+                    
+                    <DocumentHeader />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontWeight: '600', fontSize: 'inherit' }}>
-                <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
-                <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-                <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
-                <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
-                <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
-                <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...dynamicTextStyle, border:'none', padding:'0' }} />
-            </div>
-
-            <div style={{ marginBottom: '15px' }}>Dear Sir,</div>
-
-            <div style={{ marginBottom: '15px', fontWeight: 'bold', textDecoration:'underline' }}>
-                SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', width: '90%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
-            </div>
-
-            <div style={{ marginBottom: '10px' }}>
-                <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-                <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
-            </div>
-            <div style={{ marginBottom: '20px' }}>
-                <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
-            </div>
-
-            <div style={{ marginTop: '10px', borderTop: '2px solid #333', paddingTop: '10px' }}>
-                <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '10px', fontSize:'10pt' }}>TERMS AND CONDITIONS</div>
-                <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', color:'#000', fontWeight:'normal' }}>
-                    <div>
-                        <div style={sectionTitleStyle}>TAXES:</div>
-                        <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
-                        <div style={sectionTitleStyle}>WARRANTY:</div>
-                        <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
-                        <div style={sectionTitleStyle}>PAYMENT:</div>
-                        <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={5} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontWeight: '600', fontSize: 'inherit' }}>
+                        <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
+                        <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
-                    <div>
-                        <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div>
-                        <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={6} />
-                        <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div>
-                        <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={4} />
+
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
+                        <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                        <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                        <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...dynamicTextStyle, border:'none', padding:'0' }} />
                     </div>
-                </div>
-            </div>
 
-            <div style={{ marginTop: '30px' }}>
-                <div>Yours truly,</div>
-                <div style={{ fontWeight: 'bold', marginTop:'5px' }}>For United Biomedical Services,</div>
-                <div style={{ marginTop: '30px' }}>
-                    <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block', fontSize:'11pt', width:'100%', outline:'none' }} />
-                    <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block', fontSize:'10pt', width:'100%', outline:'none' }} />
-                </div>
-            </div>
-        </div> 
+                    <div style={{ marginBottom: '15px' }}>Dear Sir,</div>
 
-        {isPdfGenerating && (
-            <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
-        )}
+                    <div style={{ marginBottom: '15px', fontWeight: 'bold', textDecoration:'underline' }}>
+                        SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', width: '90%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
+                    </div>
 
-        {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
-        <div className="page-2" style={{ paddingTop: '10px', display: (activeTab === 'quote' || isPdfGenerating) ? 'block' : 'none' }}>
-            <DocumentHeader />
-            <div style={{ textAlign: 'right', marginBottom: '20px' }}>
-                <h2 style={{ margin: '0 0 5px 0', color: '#444', textTransform:'uppercase', fontSize:'18px', letterSpacing:'1px' }}>Quotation Details</h2>
-                <div style={{ fontSize: '12px', color:'#666' }}>Ref: {coverRef}</div>
-                <div style={{ fontSize: '12px', color:'#666' }}>Date: {coverDate}</div>
-            </div>
+                    <div style={{ marginBottom: '10px' }}>
+                        <textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                    </div>
+                    <div style={{ marginBottom: '10px' }}>
+                        <textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={2} />
+                    </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                <thead>
-                    <tr style={{height:'35px'}}>
-                        <th style={{...tableHeaderStyle, width:'30px'}}>#</th>
-                        <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'10px'}}>Description</th>
-                        {!isClientMode && (
-                            <>
-                                <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Base</th>
-                                <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Trn%</th>
-                                <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Trn.₹</th>
-                                <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Fit</th>
-                                <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Sadl</th>
-                                <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Work</th>
-                                <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Total</th>
-                                <th style={{...tableHeaderStyle, width:'40px', background:'#e9ecef'}}>Mrg%</th>
-                                <th style={{...tableHeaderStyle, width:'40px', background:'#e9ecef'}}>Mrg.₹</th>
-                            </>
-                        )}
-                        <th style={{...tableHeaderStyle, width:'40px'}}>Qty</th>
-                        <th style={{...tableHeaderStyle, width:'40px'}}>Unit</th>
-                        <th style={{...tableHeaderStyle, width:'70px'}}>Rate</th>
-                        <th style={{...tableHeaderStyle, width:'90px'}}>Amount</th>
-                        {!isClientMode && (
-                            <>
-                                <th style={{...tableHeaderStyle, width:'50px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
-                                <th style={{...tableHeaderStyle, width:'40px', background:'#e6fffa', color:'#006644'}}>P.%</th>
-                                <th style={{...tableHeaderStyle, width:'60px', background:'#ccfce3', color:'#006644'}}>Gross</th>
-                                <th style={{...tableHeaderStyle, width:'20px', background:'#fff', borderBottom:'none'}}></th>
-                            </>
-                        )}
-                    </tr>
-                </thead>
-                <tbody>
-                {categoryOrder.map((catId, catIndex) => {
-                    const category = productCatalog.find(c => c.id === catId);
-                    const catRows = rows.filter(r => r.categoryId === catId);
-                    let subTotalAmt = 0; let subTotalCost = 0; let subTotalGross = 0;
-                    catRows.forEach(r => { subTotalAmt += r.quotedPrice * r.qty; subTotalCost += r.internalCost * r.qty; subTotalGross += (r.quotedPrice - r.internalCost) * r.qty; });
+                    <div style={{ marginTop: '10px', borderTop: '2px solid #333', paddingTop: '10px' }}>
+                        <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '10px', fontSize:'10pt' }}>TERMS AND CONDITIONS</div>
+                        <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', color:'#000', fontWeight:'normal' }}>
+                            <div>
+                                <div style={sectionTitleStyle}>TAXES:</div>
+                                <textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+                                <div style={sectionTitleStyle}>WARRANTY:</div>
+                                <textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+                                <div style={sectionTitleStyle}>PAYMENT:</div>
+                                <textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={5} />
+                            </div>
+                            <div>
+                                <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div>
+                                <textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={6} />
+                                <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div>
+                                <textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={4} />
+                            </div>
+                        </div>
+                    </div>
 
-                    if (catRows.length === 0 && isClientMode) return null;
+                    <div style={{ marginTop: '30px' }}>
+                        <div>Yours truly,</div>
+                        <div style={{ fontWeight: 'bold', marginTop:'5px' }}>For United Biomedical Services,</div>
+                        <div style={{ marginTop: '30px' }}>
+                            <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block', fontSize:'11pt', width:'100%', outline:'none' }} />
+                            <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block', fontSize:'10pt', width:'100%', outline:'none' }} />
+                        </div>
+                    </div>
+                </div> 
 
-                    return (
-                        <>
-                            <tr key={`cat-${catId}`}>
-                                <td colSpan={isClientMode ? 5 : 18} style={{ padding: '15px 10px 5px 10px', fontWeight: 'bold', color:'#2c3e50', fontSize:'13px', borderBottom:'2px solid #eee' }}>
-                                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                        <span>{category?.name}</span>
-                                        {!isClientMode && (
-                                            <div style={{ fontSize:'10px' }}>
-                                                <button onClick={() => moveCategory(catIndex, 'up')} style={{cursor:'pointer', border:'none', background:'none', padding:'0 5px'}}>▲</button>
-                                                <button onClick={() => moveCategory(catIndex, 'down')} style={{cursor:'pointer', border:'none', background:'none', padding:'0 5px'}}>▼</button>
-                                            </div>
-                                        )}
-                                    </div>
-                                </td>
+                {isPdfGenerating && (
+                    <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
+                )}
+
+                {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
+                <div className="page-2" style={{ paddingTop: '10px', display: (activeTab === 'quote' || isPdfGenerating) ? 'block' : 'none' }}>
+                    <DocumentHeader />
+                    <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+                        <h2 style={{ margin: '0 0 5px 0', color: '#444', textTransform:'uppercase', fontSize:'18px', letterSpacing:'1px' }}>Quotation Details</h2>
+                        <div style={{ fontSize: '12px', color:'#666' }}>Ref: {coverRef}</div>
+                        <div style={{ fontSize: '12px', color:'#666' }}>Date: {coverDate}</div>
+                    </div>
+
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                        <thead>
+                            <tr style={{height:'35px'}}>
+                                <th style={{...tableHeaderStyle, width:'30px'}}>#</th>
+                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'10px'}}>Description</th>
+                                {!isClientMode && (
+                                    <>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Base</th>
+                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Trn%</th>
+                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Trn.₹</th>
+                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Fit</th>
+                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Sadl</th>
+                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Work</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Total</th>
+                                        <th style={{...tableHeaderStyle, width:'40px', background:'#e9ecef'}}>Mrg%</th>
+                                        <th style={{...tableHeaderStyle, width:'40px', background:'#e9ecef'}}>Mrg.₹</th>
+                                    </>
+                                )}
+                                <th style={{...tableHeaderStyle, width:'40px'}}>Qty</th>
+                                <th style={{...tableHeaderStyle, width:'40px'}}>Unit</th>
+                                <th style={{...tableHeaderStyle, width:'70px'}}>Rate</th>
+                                <th style={{...tableHeaderStyle, width:'90px'}}>Amount</th>
+                                {!isClientMode && (
+                                    <>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
+                                        <th style={{...tableHeaderStyle, width:'40px', background:'#e6fffa', color:'#006644'}}>P.%</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#ccfce3', color:'#006644'}}>Gross</th>
+                                        <th style={{...tableHeaderStyle, width:'20px', background:'#fff', borderBottom:'none'}}></th>
+                                    </>
+                                )}
                             </tr>
-                            {catRows.map((row, index) => {
-                                const actualProfit = row.quotedPrice - row.internalCost;
-                                const actualProfitPercent = row.internalCost > 0 ? (actualProfit / row.internalCost) * 100 : 0;
-                                const totalGross = actualProfit * row.qty;
-                                return (
-                                    <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
-                                        <td style={{ textAlign: 'center', padding:'8px 4px', color:'#999' }}>{index + 1}</td>
-                                        <td style={{ padding:'8px 4px', fontWeight:'500' }}>{row.name}</td>
-                                        {!isClientMode && (
-                                            <>
-                                                <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.factoryPrice.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
-                                                <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.transPercent} onChange={(e)=>updateRow(row.uid, 'transPercent', e.target.value)} style={inputStyle} /></td>
-                                                <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.transAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'transAmt', e.target.value)} style={readOnlyStyle} tabIndex="-1" /></td>
-                                                <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.fittingCost} onChange={(e)=>updateRow(row.uid, 'fittingCost', e.target.value)} style={inputStyle} /></td>
-                                                <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.saddleCost} onChange={(e)=>updateRow(row.uid, 'saddleCost', e.target.value)} style={inputStyle} /></td>
-                                                <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.workCost} onChange={(e)=>updateRow(row.uid, 'workCost', e.target.value)} style={inputStyle} /></td>
-                                                <td style={{padding:'2px', background:'#f8f9fa', color:'#666', textAlign:'center', fontSize:'11px'}}>{row.internalCost.toFixed(0)}</td>
-                                                <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginPercent.toFixed(1)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={{...inputStyle, color:'#e67e22', fontWeight:'bold'}} /></td>
-                                                <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'marginAmt', e.target.value)} style={inputStyle} /></td>
-                                            </>
-                                        )}
-                                        <td style={{padding:'2px'}}>
-                                            {isClientMode ? <div style={{textAlign:'center', padding:'8px 0'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center', fontWeight:'bold'}} />}
+                        </thead>
+                        <tbody>
+                        {categoryOrder.map((catId, catIndex) => {
+                            const category = productCatalog.find(c => c.id === catId);
+                            const catRows = rows.filter(r => r.categoryId === catId);
+                            let subTotalAmt = 0; let subTotalCost = 0; let subTotalGross = 0;
+                            catRows.forEach(r => { subTotalAmt += r.quotedPrice * r.qty; subTotalCost += r.internalCost * r.qty; subTotalGross += (r.quotedPrice - r.internalCost) * r.qty; });
+
+                            if (catRows.length === 0 && isClientMode) return null;
+
+                            return (
+                                <>
+                                    <tr key={`cat-${catId}`}>
+                                        <td colSpan={isClientMode ? 5 : 18} style={{ padding: '15px 10px 5px 10px', fontWeight: 'bold', color:'#2c3e50', fontSize:'13px', borderBottom:'2px solid #eee' }}>
+                                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                                                <span>{category?.name}</span>
+                                                {!isClientMode && (
+                                                    <div style={{ fontSize:'10px' }}>
+                                                        <button onClick={() => moveCategory(catIndex, 'up')} style={{cursor:'pointer', border:'none', background:'none', padding:'0 5px'}}>▲</button>
+                                                        <button onClick={() => moveCategory(catIndex, 'down')} style={{cursor:'pointer', border:'none', background:'none', padding:'0 5px'}}>▼</button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td style={{textAlign:'center', color:'#888', fontSize:'11px'}}>{row.unit}</td>
-                                        <td style={{padding:'2px'}}>
-                                            {isClientMode ? <div style={{textAlign:'right', padding:'8px 0'}}>{row.quotedPrice.toFixed(2)}</div> : <input type="number" value={row.quotedPrice} onChange={(e)=>updateRow(row.uid, 'quotedPrice', e.target.value)} style={{...inputStyle, fontWeight:'bold', color:'#2980b9'}} />}
-                                        </td>
-                                        <td style={{padding:'2px', textAlign:'right', fontWeight:'bold'}}>
-                                            {isClientMode ? (row.quotedPrice * row.qty).toLocaleString('en-IN') : <input type="number" value={(row.quotedPrice * row.qty).toFixed(2)} onChange={(e)=>handleRowAmountChange(row.uid, e.target.value)} style={{...readOnlyStyle, color:'#333'}} />}
-                                        </td>
-                                        {!isClientMode && (
-                                            <>
-                                                <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#27ae60', background:'#f0fff4', fontSize:'11px'}}>{actualProfit.toFixed(0)}</td>
-                                                <td style={{textAlign:'right', paddingRight:'5px', color: '#888', background:'#f0fff4', fontSize:'11px'}}>{actualProfitPercent.toFixed(1)}%</td>
-                                                <td style={{textAlign:'right', paddingRight:'5px', fontWeight:'bold', color: totalGross < 0 ? 'red' : '#219150', background:'#e6fffa'}}>{totalGross.toFixed(0)}</td>
-                                                <td style={{textAlign:'center'}}><button onClick={()=>removeRow(row.uid)} style={{color:'#e74c3c', border:'none', background:'none', cursor:'pointer', fontSize:'16px', lineHeight:'1'}}>×</button></td>
-                                            </>
-                                        )}
                                     </tr>
-                                );
-                            })}
-                            {!isClientMode && (
-                                <tr style={{ background: '#fff', borderTop: '2px solid #eee' }}>
-                                    <td colSpan={2} style={{textAlign:'right', padding:'8px', fontWeight:'bold', color:'#aaa', fontSize:'11px', textTransform:'uppercase'}}>Subtotal ({category.name}):</td>
-                                    <td colSpan={7}></td>
-                                    <td colSpan={1} style={{textAlign:'right', padding:'8px', fontSize:'12px', color:'#777'}}>Cost: {subTotalCost.toFixed(0)}</td>
-                                    <td colSpan={4}></td>
-                                    <td style={{textAlign:'right', padding:'8px', fontWeight:'bold', fontSize:'13px'}}>₹{subTotalAmt.toLocaleString('en-IN')}</td>
-                                    <td colSpan={2}></td>
-                                    <td style={{textAlign:'right', padding:'8px', fontWeight:'bold', color: subTotalGross < 0 ? 'red' : '#27ae60', fontSize:'12px'}}>{subTotalGross.toLocaleString('en-IN')}</td>
-                                    <td></td>
-                                </tr>
-                            )}
-                        </>
-                    );
-                })}
-                </tbody>
-            </table>
+                                    {catRows.map((row, index) => {
+                                        const actualProfit = row.quotedPrice - row.internalCost;
+                                        const actualProfitPercent = row.internalCost > 0 ? (actualProfit / row.internalCost) * 100 : 0;
+                                        const totalGross = actualProfit * row.qty;
+                                        return (
+                                            <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
+                                                <td style={{ textAlign: 'center', padding:'8px 4px', color:'#999' }}>{index + 1}</td>
+                                                <td style={{ padding:'8px 4px', fontWeight:'500' }}>{row.name}</td>
+                                                {!isClientMode && (
+                                                    <>
+                                                        <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.factoryPrice.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
+                                                        <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.transPercent} onChange={(e)=>updateRow(row.uid, 'transPercent', e.target.value)} style={inputStyle} /></td>
+                                                        <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.transAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'transAmt', e.target.value)} style={readOnlyStyle} tabIndex="-1" /></td>
+                                                        <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.fittingCost} onChange={(e)=>updateRow(row.uid, 'fittingCost', e.target.value)} style={inputStyle} /></td>
+                                                        <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.saddleCost} onChange={(e)=>updateRow(row.uid, 'saddleCost', e.target.value)} style={inputStyle} /></td>
+                                                        <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.workCost} onChange={(e)=>updateRow(row.uid, 'workCost', e.target.value)} style={inputStyle} /></td>
+                                                        <td style={{padding:'2px', background:'#f8f9fa', color:'#666', textAlign:'center', fontSize:'11px'}}>{row.internalCost.toFixed(0)}</td>
+                                                        <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginPercent.toFixed(1)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={{...inputStyle, color:'#e67e22', fontWeight:'bold'}} /></td>
+                                                        <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'marginAmt', e.target.value)} style={inputStyle} /></td>
+                                                    </>
+                                                )}
+                                                <td style={{padding:'2px'}}>
+                                                    {isClientMode ? <div style={{textAlign:'center', padding:'8px 0'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center', fontWeight:'bold'}} />}
+                                                </td>
+                                                <td style={{textAlign:'center', color:'#888', fontSize:'11px'}}>{row.unit}</td>
+                                                <td style={{padding:'2px'}}>
+                                                    {isClientMode ? <div style={{textAlign:'right', padding:'8px 0'}}>{row.quotedPrice.toFixed(2)}</div> : <input type="number" value={row.quotedPrice} onChange={(e)=>updateRow(row.uid, 'quotedPrice', e.target.value)} style={{...inputStyle, fontWeight:'bold', color:'#2980b9'}} />}
+                                                </td>
+                                                <td style={{padding:'2px', textAlign:'right', fontWeight:'bold'}}>
+                                                    {isClientMode ? (row.quotedPrice * row.qty).toLocaleString('en-IN') : <input type="number" value={(row.quotedPrice * row.qty).toFixed(2)} onChange={(e)=>handleRowAmountChange(row.uid, e.target.value)} style={{...readOnlyStyle, color:'#333'}} />}
+                                                </td>
+                                                {!isClientMode && (
+                                                    <>
+                                                        <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#27ae60', background:'#f0fff4', fontSize:'11px'}}>{actualProfit.toFixed(0)}</td>
+                                                        <td style={{textAlign:'right', paddingRight:'5px', color: '#888', background:'#f0fff4', fontSize:'11px'}}>{actualProfitPercent.toFixed(1)}%</td>
+                                                        <td style={{textAlign:'right', paddingRight:'5px', fontWeight:'bold', color: totalGross < 0 ? 'red' : '#219150', background:'#e6fffa'}}>{totalGross.toFixed(0)}</td>
+                                                        <td style={{textAlign:'center'}}><button onClick={()=>removeRow(row.uid)} style={{color:'#e74c3c', border:'none', background:'none', cursor:'pointer', fontSize:'16px', lineHeight:'1'}}>×</button></td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        );
+                                    })}
+                                    {!isClientMode && (
+                                        <tr style={{ background: '#fff', borderTop: '2px solid #eee' }}>
+                                            <td colSpan={2} style={{textAlign:'right', padding:'8px', fontWeight:'bold', color:'#aaa', fontSize:'11px', textTransform:'uppercase'}}>Subtotal ({category.name}):</td>
+                                            <td colSpan={7}></td>
+                                            <td colSpan={1} style={{textAlign:'right', padding:'8px', fontSize:'12px', color:'#777'}}>Cost: {subTotalCost.toFixed(0)}</td>
+                                            <td colSpan={4}></td>
+                                            <td style={{textAlign:'right', padding:'8px', fontWeight:'bold', fontSize:'13px'}}>₹{subTotalAmt.toLocaleString('en-IN')}</td>
+                                            <td colSpan={2}></td>
+                                            <td style={{textAlign:'right', padding:'8px', fontWeight:'bold', color: subTotalGross < 0 ? 'red' : '#27ae60', fontSize:'12px'}}>{subTotalGross.toLocaleString('en-IN')}</td>
+                                            <td></td>
+                                        </tr>
+                                    )}
+                                </>
+                            );
+                        })}
+                        </tbody>
+                    </table>
 
-            <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ width: '350px', padding:'20px', background:'#f8f9fa', borderRadius:'10px', border:'1px solid #eee' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'12px', fontSize:'14px' }}>
-                        <span style={{color:'#666'}}>Total Base Amount:</span>
-                        <strong style={{color:'#333'}}>₹{grandTotalProjectValue.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong>
+                    <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-end' }}>
+                        <div style={{ width: '350px', padding:'20px', background:'#f8f9fa', borderRadius:'10px', border:'1px solid #eee' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'12px', fontSize:'14px' }}>
+                                <span style={{color:'#666'}}>Total Base Amount:</span>
+                                <strong style={{color:'#333'}}>₹{grandTotalProjectValue.toLocaleString('en-IN', {minimumFractionDigits: 2})}</strong>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'15px', paddingBottom:'15px', borderBottom:'1px dashed #ccc', fontSize:'14px' }}>
+                                <span style={{color:'#666'}}>GST ({gstPercent}%):</span>
+                                <span style={{color:'#333'}}>₹{(grandTotalProjectValue * (gstPercent/100)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize:'18px', color: '#2c3e50', fontWeight: 'bold' }}>
+                                <span>GRAND TOTAL:</span>
+                                <span>₹{(grandTotalProjectValue * (1 + gstPercent/100)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                            </div>
+                        </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom:'15px', paddingBottom:'15px', borderBottom:'1px dashed #ccc', fontSize:'14px' }}>
-                        <span style={{color:'#666'}}>GST ({gstPercent}%):</span>
-                        <span style={{color:'#333'}}>₹{(grandTotalProjectValue * (gstPercent/100)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize:'18px', color: '#2c3e50', fontWeight: 'bold' }}>
-                        <span>GRAND TOTAL:</span>
-                        <span>₹{(grandTotalProjectValue * (1 + gstPercent/100)).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+
+                    <div style={{ marginTop: '40px', borderTop:'1px solid #eee', paddingTop:'15px' }}>
+                        <div style={{ fontSize:'11px', color:'#999', textAlign:'center' }}>
+                            This quotation is valid for 30 days. Errors and omissions excepted (E&OE).
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <div style={{ marginTop: '40px', borderTop:'1px solid #eee', paddingTop:'15px' }}>
-                <div style={{ fontSize:'11px', color:'#999', textAlign:'center' }}>
-                    This quotation is valid for 30 days. Errors and omissions excepted (E&OE).
-                </div>
-            </div>
-        </div>
+              </div>
+          </div>
       </div>
       
       {/* INTERNAL FOOTER */}
