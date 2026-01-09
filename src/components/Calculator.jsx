@@ -23,8 +23,8 @@ export default function Calculator() {
   const [bodyColor, setBodyColor] = useState("#000000"); 
   const [isBodyBold, setIsBodyBold] = useState(false); 
   
-  // NEW: Zoom State
-  const [zoomLevel, setZoomLevel] = useState(1.1); // Start slightly zoomed in
+  // ZOOM State
+  const [zoomLevel, setZoomLevel] = useState(1.1); 
 
   // --- STATE: COVER LETTER CONTENT ---
   const [coverRef, setCoverRef] = useState("UBS/78PL/MMCK");
@@ -228,17 +228,12 @@ export default function Calculator() {
     const wasInClientMode = isClientMode;
     if (!isClientMode) setIsClientMode(true);
     
-    // Temporarily reset zoom for print, then restore? 
-    // html2pdf takes the element as is. We need to handle the scale.
-    // The safest way is to clone the element or ensure style is standard during print.
-    // We will trust html2pdf's 'html2canvas' scale option which we set to 2.
-
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
             margin: [5, 5, 5, 5], 
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
-            html2canvas: { scale: 3, useCORS: true }, // Higher scale for better quality
+            html2canvas: { scale: 3, useCORS: true },
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
             pagebreak: { mode: ['css', 'legacy'] } 
         }).from(element).save().then(() => {
@@ -255,7 +250,7 @@ export default function Calculator() {
       textTransform: 'uppercase', 
       fontSize:'9px', 
       fontWeight: 'bold', 
-      padding:'8px 4px', 
+      padding:'8px 2px', // Reduced side padding for headers
       borderBottom:'2px solid #ddd',
       textAlign: 'center',
       letterSpacing: '0.5px'
@@ -266,12 +261,13 @@ export default function Calculator() {
       border: 'none', 
       borderBottom: '1px solid #eee', 
       background: 'transparent', 
-      padding: '4px 0', 
+      padding: '4px 2px', // Very small padding to prevent hiding text
       borderRadius: '0', 
       textAlign:'center', 
       fontSize:'12px',
       color: '#333',
-      outline: 'none'
+      outline: 'none',
+      boxSizing: 'border-box' // Critical for making padding not squeeze width
   };
 
   const readOnlyStyle = { 
@@ -316,7 +312,7 @@ export default function Calculator() {
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#e9ecef', width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom:'120px' }}>
       
-      {/* --- CONTROL BAR (FULL WIDTH) --- */}
+      {/* --- CONTROL BAR --- */}
       <div style={{ width: '95%', maxWidth: '1400px', marginTop: '20px', marginBottom: '20px', display: 'flex', flexDirection:'column', gap:'15px', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
         
         {/* TOP ROW: TITLE & ZOOM */}
@@ -431,7 +427,7 @@ export default function Calculator() {
               transform: `scale(${zoomLevel})`, 
               transformOrigin: 'top center',
               transition: 'transform 0.2s ease',
-              marginBottom: '100px' // Extra space for scrolling
+              marginBottom: '100px'
           }}>
               <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
                 
@@ -514,25 +510,26 @@ export default function Calculator() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                         <thead>
                             <tr style={{height:'35px'}}>
-                                <th style={{...tableHeaderStyle, width:'30px'}}>#</th>
-                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'10px'}}>Description</th>
+                                {/* INCREASED WIDTHS BELOW (from 30-40 to 45-50) */}
+                                <th style={{...tableHeaderStyle, width:'25px'}}>#</th>
+                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'5px'}}>Description</th>
                                 {!isClientMode && (
                                     <>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Base</th>
-                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Trn%</th>
-                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Trn.₹</th>
-                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Fit</th>
-                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Sadl</th>
-                                        <th style={{...tableHeaderStyle, width:'40px', background:'#f3f3f3'}}>Work</th>
+                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Base</th>
+                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Trn%</th>
+                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Trn.₹</th>
+                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Fit</th>
+                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Sadl</th>
+                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Work</th>
                                         <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Total</th>
-                                        <th style={{...tableHeaderStyle, width:'40px', background:'#e9ecef'}}>Mrg%</th>
-                                        <th style={{...tableHeaderStyle, width:'40px', background:'#e9ecef'}}>Mrg.₹</th>
+                                        <th style={{...tableHeaderStyle, width:'45px', background:'#e9ecef'}}>Mrg%</th>
+                                        <th style={{...tableHeaderStyle, width:'45px', background:'#e9ecef'}}>Mrg.₹</th>
                                     </>
                                 )}
-                                <th style={{...tableHeaderStyle, width:'40px'}}>Qty</th>
-                                <th style={{...tableHeaderStyle, width:'40px'}}>Unit</th>
-                                <th style={{...tableHeaderStyle, width:'70px'}}>Rate</th>
-                                <th style={{...tableHeaderStyle, width:'90px'}}>Amount</th>
+                                <th style={{...tableHeaderStyle, width:'35px'}}>Qty</th>
+                                <th style={{...tableHeaderStyle, width:'35px'}}>Unit</th>
+                                <th style={{...tableHeaderStyle, width:'60px'}}>Rate</th>
+                                <th style={{...tableHeaderStyle, width:'80px'}}>Amount</th>
                                 {!isClientMode && (
                                     <>
                                         <th style={{...tableHeaderStyle, width:'50px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
