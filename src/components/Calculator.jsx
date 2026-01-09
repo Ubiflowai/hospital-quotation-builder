@@ -24,7 +24,7 @@ export default function Calculator() {
   const [isBodyBold, setIsBodyBold] = useState(false); 
   
   // ZOOM State
-  const [zoomLevel, setZoomLevel] = useState(1.1); 
+  const [zoomLevel, setZoomLevel] = useState(1.0); 
 
   // --- STATE: COVER LETTER CONTENT ---
   const [coverRef, setCoverRef] = useState("UBS/78PL/MMCK");
@@ -222,7 +222,7 @@ export default function Calculator() {
     });
   }
 
-  // --- PDF GENERATION ---
+  // --- PDF GENERATION (UPDATED FOR LANDSCAPE) ---
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
     const wasInClientMode = isClientMode;
@@ -234,7 +234,7 @@ export default function Calculator() {
             margin: [5, 5, 5, 5], 
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 3, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, // SWITCHED TO LANDSCAPE
             pagebreak: { mode: ['css', 'legacy'] } 
         }).from(element).save().then(() => {
              setIsPdfGenerating(false);
@@ -250,7 +250,7 @@ export default function Calculator() {
       textTransform: 'uppercase', 
       fontSize:'9px', 
       fontWeight: 'bold', 
-      padding:'8px 2px', // Reduced side padding for headers
+      padding:'8px 4px', 
       borderBottom:'2px solid #ddd',
       textAlign: 'center',
       letterSpacing: '0.5px'
@@ -261,13 +261,13 @@ export default function Calculator() {
       border: 'none', 
       borderBottom: '1px solid #eee', 
       background: 'transparent', 
-      padding: '4px 2px', // Very small padding to prevent hiding text
+      padding: '4px 0', 
       borderRadius: '0', 
       textAlign:'center', 
       fontSize:'12px',
       color: '#333',
       outline: 'none',
-      boxSizing: 'border-box' // Critical for making padding not squeeze width
+      boxSizing:'border-box'
   };
 
   const readOnlyStyle = { 
@@ -315,19 +315,16 @@ export default function Calculator() {
       {/* --- CONTROL BAR --- */}
       <div style={{ width: '95%', maxWidth: '1400px', marginTop: '20px', marginBottom: '20px', display: 'flex', flexDirection:'column', gap:'15px', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
         
-        {/* TOP ROW: TITLE & ZOOM */}
+        {/* TOP ROW */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #f0f0f0', paddingBottom:'10px'}}>
              <h2 style={{ margin: 0, color: '#2c3e50', fontSize: '20px' }}>Quotation Manager</h2>
-             
              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                 {/* ZOOM CONTROLS */}
                  <div style={{ display:'flex', alignItems:'center', gap:'5px', background:'#f1f3f5', padding:'5px 10px', borderRadius:'20px' }}>
                      <span style={{ fontSize:'12px', fontWeight:'bold', color:'#777', marginRight:'5px' }}>ZOOM:</span>
                      <button onClick={handleZoomOut} style={{ cursor:'pointer', width:'25px', height:'25px', borderRadius:'50%', border:'none', background:'#ddd', fontWeight:'bold' }}>-</button>
                      <span style={{ fontSize:'12px', minWidth:'35px', textAlign:'center' }}>{Math.round(zoomLevel * 100)}%</span>
                      <button onClick={handleZoomIn} style={{ cursor:'pointer', width:'25px', height:'25px', borderRadius:'50%', border:'none', background:'#ddd', fontWeight:'bold' }}>+</button>
                  </div>
-
                  <div style={{ display:'flex', gap:'10px' }}>
                      <button onClick={() => setActiveTab('cover')} style={{ padding: '8px 20px', cursor: 'pointer', borderRadius: '20px', fontWeight: '600', border: 'none', background: activeTab === 'cover' ? '#3498db' : '#f1f3f5', color: activeTab === 'cover' ? 'white' : '#555', transition: 'all 0.2s' }}>
                         1. Edit Cover Letter
@@ -410,10 +407,9 @@ export default function Calculator() {
       )}
 
       {/* ===================================================================================== */}
-      {/* PDF DOCUMENT WRAPPER WITH SCALING                                                     */}
+      {/* PDF DOCUMENT WRAPPER (LANDSCAPE 280mm)                                                */}
       {/* ===================================================================================== */}
       
-      {/* Scrollable Container */}
       <div style={{ 
           overflow: 'auto', 
           width: '100%', 
@@ -429,7 +425,7 @@ export default function Calculator() {
               transition: 'transform 0.2s ease',
               marginBottom: '100px'
           }}>
-              <div ref={pdfRef} style={{ background: 'white', width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '10mm', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
+              <div ref={pdfRef} style={{ background: 'white', width: '280mm', minHeight: '210mm', margin: '0 auto', padding: '10mm', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', boxSizing: 'border-box' }}>
                 
                 {/* ======================= PAGE 1: COVERING LETTER ======================= */}
                 <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.4', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
@@ -498,7 +494,7 @@ export default function Calculator() {
                     <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
                 )}
 
-                {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
+                {/* ======================= PAGE 2: QUOTATION TABLE (LANDSCAPE) ======================= */}
                 <div className="page-2" style={{ paddingTop: '10px', display: (activeTab === 'quote' || isPdfGenerating) ? 'block' : 'none' }}>
                     <DocumentHeader />
                     <div style={{ textAlign: 'right', marginBottom: '20px' }}>
@@ -510,32 +506,32 @@ export default function Calculator() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                         <thead>
                             <tr style={{height:'35px'}}>
-                                {/* INCREASED WIDTHS BELOW (from 30-40 to 45-50) */}
-                                <th style={{...tableHeaderStyle, width:'25px'}}>#</th>
-                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'5px'}}>Description</th>
+                                {/* INCREASED WIDTHS HERE FOR BETTER VISIBILITY */}
+                                <th style={{...tableHeaderStyle, width:'30px'}}>#</th>
+                                <th style={{...tableHeaderStyle, textAlign:'left', paddingLeft:'10px'}}>Description</th>
                                 {!isClientMode && (
                                     <>
-                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Base</th>
-                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Trn%</th>
-                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Trn.₹</th>
-                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Fit</th>
-                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Sadl</th>
-                                        <th style={{...tableHeaderStyle, width:'45px', background:'#f3f3f3'}}>Work</th>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Total</th>
-                                        <th style={{...tableHeaderStyle, width:'45px', background:'#e9ecef'}}>Mrg%</th>
-                                        <th style={{...tableHeaderStyle, width:'45px', background:'#e9ecef'}}>Mrg.₹</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Base</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Trn%</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#f3f3f3'}}>Trn.₹</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Fit</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Sadl</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#f3f3f3'}}>Work</th>
+                                        <th style={{...tableHeaderStyle, width:'70px', background:'#e9ecef'}}>Total</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e9ecef'}}>Mrg%</th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#e9ecef'}}>Mrg.₹</th>
                                     </>
                                 )}
-                                <th style={{...tableHeaderStyle, width:'35px'}}>Qty</th>
-                                <th style={{...tableHeaderStyle, width:'35px'}}>Unit</th>
-                                <th style={{...tableHeaderStyle, width:'60px'}}>Rate</th>
-                                <th style={{...tableHeaderStyle, width:'80px'}}>Amount</th>
+                                <th style={{...tableHeaderStyle, width:'50px'}}>Qty</th>
+                                <th style={{...tableHeaderStyle, width:'50px'}}>Unit</th>
+                                <th style={{...tableHeaderStyle, width:'80px'}}>Rate</th>
+                                <th style={{...tableHeaderStyle, width:'100px'}}>Amount</th>
                                 {!isClientMode && (
                                     <>
-                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
-                                        <th style={{...tableHeaderStyle, width:'40px', background:'#e6fffa', color:'#006644'}}>P.%</th>
-                                        <th style={{...tableHeaderStyle, width:'60px', background:'#ccfce3', color:'#006644'}}>Gross</th>
-                                        <th style={{...tableHeaderStyle, width:'20px', background:'#fff', borderBottom:'none'}}></th>
+                                        <th style={{...tableHeaderStyle, width:'60px', background:'#e6fffa', color:'#006644'}}>P.Marg</th>
+                                        <th style={{...tableHeaderStyle, width:'50px', background:'#e6fffa', color:'#006644'}}>P.%</th>
+                                        <th style={{...tableHeaderStyle, width:'70px', background:'#ccfce3', color:'#006644'}}>Gross</th>
+                                        <th style={{...tableHeaderStyle, width:'30px', background:'#fff', borderBottom:'none'}}></th>
                                     </>
                                 )}
                             </tr>
