@@ -57,7 +57,7 @@ export default function Calculator() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   
-  // CUSTOM ITEM INPUTS
+  // --- CUSTOM ITEM STATE ---
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
 
@@ -154,18 +154,19 @@ export default function Calculator() {
       
       const customCategoryId = 9999; 
       
-      // Add custom category to order if not there
+      // Ensure category is in the order list
       if (!categoryOrder.includes(customCategoryId)) {
           setCategoryOrder([...categoryOrder, customCategoryId]);
       }
       
-      // Ensure category exists in catalog for display name purposes
-      const existingCat = productCatalog.find(c => c.id === customCategoryId);
-      if (!existingCat) {
+      // Add a dummy category to productCatalog for display name if it's missing
+      const catExists = productCatalog.find(c => c.id === customCategoryId);
+      if (!catExists) {
           productCatalog.push({ id: customCategoryId, name: "Custom Items", items: [] });
       }
 
       const price = parseFloat(customItemPrice) || 0;
+
       const newRowRaw = {
           uid: Date.now(),
           id: `custom-${Date.now()}`, // Unique ID
@@ -185,7 +186,7 @@ export default function Calculator() {
       setRows([...rows, calculateRow(newRowRaw, baseMarginPercent)]);
       setCustomItemName('');
       setCustomItemPrice('');
-      setActiveTab('quote'); // Switch to quote tab to see item
+      setActiveTab('quote');
   };
 
   const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
@@ -194,13 +195,13 @@ export default function Calculator() {
     // 1. Text Fields (Name/Unit)
     if (field === 'name' || field === 'unit') {
         setRows(rows.map(row => {
-            if(row.uid !== uid) return row;
+            if (row.uid !== uid) return row;
             return { ...row, [field]: value };
         }));
         return;
     }
 
-    // 2. Number Fields
+    // 2. Numeric Fields
     const val = value === '' ? 0 : parseFloat(value);
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
@@ -299,12 +300,13 @@ export default function Calculator() {
     }, 500);
   };
 
-  // --- STYLES ---
+  // --- STYLES & LAYOUT LOGIC ---
   const isPrint = isClientMode || isPdfGenerating;
 
   // LAYOUT FIX: 'max-content' forces the table to grow sideways in Edit Mode
   const tableWidth = isPrint ? '100%' : 'max-content';
-  const minTableWidth = isPrint ? '280mm' : '2000px'; // 2000px ensures horizontal scroll!
+  // Forces scrollbar in Edit Mode (2000px is wider than most screens)
+  const minTableWidth = isPrint ? '280mm' : '1800px'; 
 
   const tableStyle = {
       width: tableWidth,
@@ -412,7 +414,7 @@ export default function Calculator() {
       {/* --- CONTROL BAR --- */}
       <div style={{ width: '95%', maxWidth: '1400px', marginTop: '20px', marginBottom: '20px', display: 'flex', flexDirection:'column', gap:'15px', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
         
-        {/* TOP ROW: Title & Zoom */}
+        {/* TOP ROW */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #f0f0f0', paddingBottom:'10px'}}>
              <h2 style={{ margin: 0, color: '#2c3e50', fontSize: '20px' }}>Quotation Manager</h2>
              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -433,7 +435,7 @@ export default function Calculator() {
              </div>
         </div>
 
-        {/* MIDDLE ROW: Visual Settings */}
+        {/* MIDDLE ROW: VISUAL SETTINGS */}
         {!isClientMode && activeTab === 'cover' && (
             <div style={{ display:'flex', gap:'20px', alignItems:'center', background:'#f8f9fa', padding:'10px', borderRadius:'6px' }}>
                 <div style={{ fontWeight:'bold', fontSize:'12px', color:'#555' }}>LETTER STYLE:</div>
@@ -457,7 +459,7 @@ export default function Calculator() {
             </div>
         )}
 
-        {/* BOTTOM ROW: Global Settings & Custom Item */}
+        {/* BOTTOM ROW: GLOBAL SETTINGS & CUSTOM ITEM */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
              {!isClientMode ? (
                  <div style={{ display: 'flex', gap:'20px', alignItems:'center' }}>
@@ -466,10 +468,10 @@ export default function Calculator() {
                         <input type="number" value={copperRate} onChange={(e) => handleCopperRateChange(e.target.value)}
                             style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #ffe066', textAlign: 'center', fontWeight:'bold', color: '#e67700' }} />
                     </div>
-                    {/* --- CUSTOM ITEM ADDER --- */}
+                    {/* CUSTOM ITEM ADDER */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background:'#e6f7ff', padding:'6px 15px', borderRadius:'20px', border:'1px solid #1890ff' }}>
                         <span style={{ fontSize:'13px', fontWeight:'bold', color:'#0050b3' }}>+ Custom Item:</span>
-                        <input placeholder="Item Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
+                        <input placeholder="Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
                             style={{ width:'150px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
                         <input type="number" placeholder="Price..." value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} 
                             style={{ width:'70px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
@@ -515,14 +517,15 @@ export default function Calculator() {
       )}
 
       {/* ===================================================================================== */}
-      {/* PDF DOCUMENT WRAPPER                                                                  */}
+      {/* PDF DOCUMENT WRAPPER (SCROLLABLE & WIDE)                                              */}
       {/* ===================================================================================== */}
       
       <div style={{ 
           overflow: 'auto', 
           width: '100%', 
           display: 'flex', 
-          justifyContent: isPrint ? 'center' : 'flex-start', // Left align in Edit Mode for scrolling
+          // Align LEFT so horizontal scroll works naturally in edit mode
+          justifyContent: isPrint ? 'center' : 'flex-start', 
           padding: '20px', 
           boxSizing: 'border-box' 
       }}>
@@ -537,7 +540,7 @@ export default function Calculator() {
               <div ref={pdfRef} style={{ 
                   background: 'white', 
                   width: isPrint ? '280mm' : 'auto', 
-                  minWidth: isPrint ? '280mm' : '2000px', // Forces scrollbar
+                  minWidth: isPrint ? '280mm' : '1800px', // Forces horizontal scroll in Edit Mode
                   minHeight: '210mm', 
                   margin: '0 auto', 
                   padding: isPrint ? '10mm' : '20px', 
@@ -553,7 +556,6 @@ export default function Calculator() {
                         <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                         <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
-                    {/* ... (Cover letter content omitted for brevity) ... */}
                     <div style={{ marginBottom: '20px' }}>
                         <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
                         <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
@@ -604,7 +606,7 @@ export default function Calculator() {
                         <div style={{ fontSize: '12px', color:'#666' }}>Date: {coverDate}</div>
                     </div>
 
-                    <table style={{ ...tableStyle, width: '100%' }}>
+                    <table style={tableStyle}>
                         <thead>
                             <tr style={{height:'35px'}}>
                                 <th style={{...tableHeaderStyle, width: getColWidth('index')}}>#</th>
