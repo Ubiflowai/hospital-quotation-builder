@@ -60,6 +60,11 @@ export default function Calculator() {
   // --- CUSTOM ITEM INPUTS ---
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
+  const [customCatId, setCustomCatId] = useState(''); // Stores selected category ID
+
+  // --- DRAG AND DROP STATE ---
+  const dragItem = useRef();
+  const dragOverItem = useRef();
 
   const searchRef = useRef(null);
 
@@ -152,23 +157,24 @@ export default function Calculator() {
   const addCustomItem = () => {
       if (!customItemName) return;
       
-      const customCategoryId = 9999; 
+      // Use selected category OR default to "Custom Items" (9999)
+      const targetCatId = customCatId ? parseInt(customCatId) : 9999;
       
-      if (!categoryOrder.includes(customCategoryId)) {
-          setCategoryOrder([...categoryOrder, customCategoryId]);
+      if (!categoryOrder.includes(targetCatId)) {
+          setCategoryOrder([...categoryOrder, targetCatId]);
       }
       
-      // Ensure "Custom Items" category exists in catalog for display
-      const existingCat = productCatalog.find(c => c.id === customCategoryId);
+      // Ensure category exists in catalog for display
+      const existingCat = productCatalog.find(c => c.id === targetCatId);
       if (!existingCat) {
-          productCatalog.push({ id: customCategoryId, name: "Custom Items", items: [] });
+          productCatalog.push({ id: targetCatId, name: "Custom Items", items: [] });
       }
 
       const price = parseFloat(customItemPrice) || 0;
       const newRowRaw = {
           uid: Date.now(),
-          id: `custom-${Date.now()}`,
-          categoryId: customCategoryId,
+          id: `custom-${Date.now()}`, // Unique ID
+          categoryId: targetCatId,
           name: customItemName,
           hsn: "Gen",
           unit: "nos",
@@ -190,7 +196,7 @@ export default function Calculator() {
   const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
 
   const updateRow = (uid, field, value) => {
-    // 1. EDIT DESCRIPTION OR UNIT (Text Fields)
+    // 1. Text Fields
     if (field === 'name' || field === 'unit' || field === 'hsn') {
         setRows(rows.map(row => {
             if(row.uid !== uid) return row;
@@ -199,7 +205,7 @@ export default function Calculator() {
         return;
     }
 
-    // 2. NUMBER FIELDS
+    // 2. Numeric Fields
     const val = value === '' ? 0 : parseFloat(value);
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
@@ -257,6 +263,35 @@ export default function Calculator() {
     if (direction === 'up' && index > 0) { [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]]; } 
     else if (direction === 'down' && index < newOrder.length - 1) { [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]]; }
     setCategoryOrder(newOrder);
+  };
+
+  // --- DRAG AND DROP HANDLERS ---
+  const dragStart = (e, position) => {
+    dragItem.current = position;
+  };
+
+  const dragEnter = (e, position) => {
+    dragOverItem.current = position;
+  };
+
+  const drop = (e) => {
+    const copyRows = [...rows];
+    const dragRowContent = copyRows[dragItem.current];
+    const dropRowContent = copyRows[dragOverItem.current];
+
+    // If dragged to a different category, update the category ID
+    if (dragRowContent.categoryId !== dropRowContent.categoryId) {
+        dragRowContent.categoryId = dropRowContent.categoryId;
+    }
+
+    // Standard reorder logic
+    copyRows.splice(dragItem.current, 1);
+    copyRows.splice(dragOverItem.current, 0, dragRowContent);
+    
+    // Update state and clear refs
+    setRows(copyRows);
+    dragItem.current = null;
+    dragOverItem.current = null;
   };
 
   useEffect(() => {
@@ -467,10 +502,23 @@ export default function Calculator() {
                     {/* CUSTOM ITEM ADDER */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background:'#e6f7ff', padding:'6px 15px', borderRadius:'20px', border:'1px solid #1890ff' }}>
                         <span style={{ fontSize:'13px', fontWeight:'bold', color:'#0050b3' }}>+ Custom Item:</span>
-                        <input placeholder="Item Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
-                            style={{ width:'150px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
+                        {/* CATEGORY SELECTOR */}
+                        <select 
+                            value={customCatId} 
+                            onChange={(e) => setCustomCatId(e.target.value)}
+                            style={{ padding: '5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none', maxWidth:'150px' }}
+                        >
+                            <option value="">-- Category --</option>
+                            {productCatalog.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                            ))}
+                            <option value="9999">Other / Custom</option>
+                        </select>
+
+                        <input placeholder="Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
+                            style={{ width:'120px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
                         <input type="number" placeholder="Price..." value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} 
-                            style={{ width:'70px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
+                            style={{ width:'60px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
                         <button onClick={addCustomItem} style={{ background:'#1890ff', color:'white', border:'none', borderRadius:'4px', padding:'5px 10px', cursor:'pointer', fontWeight:'bold' }}>Add</button>
                     </div>
                  </div>
@@ -536,7 +584,7 @@ export default function Calculator() {
               <div ref={pdfRef} style={{ 
                   background: 'white', 
                   width: isPrint ? '280mm' : 'auto', 
-                  minWidth: isPrint ? '280mm' : '1800px', // Forces horizontal scroll in Edit Mode
+                  minWidth: isPrint ? '280mm' : '1800px', 
                   minHeight: '210mm', 
                   margin: '0 auto', 
                   padding: isPrint ? '10mm' : '20px', 
@@ -552,7 +600,6 @@ export default function Calculator() {
                         <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                         <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
-                    {/* ... (Cover letter content) ... */}
                     <div style={{ marginBottom: '20px' }}>
                         <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
                         <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
@@ -664,7 +711,14 @@ export default function Calculator() {
                                         const actualProfitPercent = row.internalCost > 0 ? (actualProfit / row.internalCost) * 100 : 0;
                                         const totalGross = actualProfit * row.qty;
                                         return (
-                                            <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
+                                            <tr 
+                                                key={row.uid} 
+                                                style={{ borderBottom: '1px solid #f1f1f1' }}
+                                                draggable={!isClientMode}
+                                                onDragStart={(e) => dragStart(e, rows.indexOf(row))}
+                                                onDragEnter={(e) => dragEnter(e, rows.indexOf(row))}
+                                                onDragEnd={drop}
+                                            >
                                                 <td style={{ textAlign: 'center', padding:'4px', color:'#999' }}>{index + 1}</td>
                                                 {/* --- EDITABLE DESCRIPTION (NAME) --- */}
                                                 <td style={{ padding:'4px', fontWeight:'500' }}>
