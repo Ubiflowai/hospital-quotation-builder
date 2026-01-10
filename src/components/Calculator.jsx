@@ -27,19 +27,19 @@ export default function Calculator() {
   // ZOOM State
   const [zoomLevel, setZoomLevel] = useState(1.0); 
 
-  // --- STATE: COVER LETTER CONTENT ---
+  // --- STATE: COVER LETTER CONTENT (Pre-filled from your PDF) ---
   const [coverRef, setCoverRef] = useState("UBS/78PL/MMCK");
   const [coverDate, setCoverDate] = useState("09-12-2025");
   const [coverToName, setCoverToName] = useState("Managing Director");
   const [coverToCompany, setCoverToCompany] = useState("MALABAR MEDICAL CENTRE");
   const [coverToAddress, setCoverToAddress] = useState("KONDOTTY.");
-  const [coverSubject, setCoverSubject] = useState("New - MGPS project");
+  const [coverSubject, setCoverSubject] = useState("New-MGPS project");
   
   const [coverBody1, setCoverBody1] = useState("This has reference to the discussion we had with you regarding the medical gas Pipe line project. Please see the attached price details for the same.");
   const [coverBody2, setCoverBody2] = useState("We are trained by Beacon Medaes (part of Atlascopco group) India, UK and USA and have AP and NFPA certificates. We follow international standards as applicable to complete our projects.");
   const [coverBody3, setCoverBody3] = useState("After installation, commissioning and training we provide test certificate to put the MGPS system for patient use. We offer you our maximum dedicated service and attention for success of the project.");
 
-  // Terms Content
+  // Terms Content (From PDF)
   const [termTaxes, setTermTaxes] = useState("GST 18% will be Extra as applicable as per Govt norms at the time of billing.");
   const [termSupply, setTermSupply] = useState("The normal completion period is approximately 2-3 months from the date of receipt of technically and commercially confirmed clear order along with advance payment. The completion date may vary due to delay in Civil and electrical works related to MGPS. Delay in manufacturing of goods, delay in delivery resulting from any cause beyond the company’s reasonable control, order/instructions of any govt authority, acts of God or military authority.");
   const [termWarranty, setTermWarranty] = useState("All our installations and supplies would carry a warranty for 12 months from the date of installation.");
@@ -203,16 +203,12 @@ export default function Calculator() {
       setActiveTab('quote');
   };
 
-  // --- DELETE ROW ---
   const removeRow = (uid) => {
       setRows(currentRows => currentRows.filter(r => r.uid !== uid));
   };
 
-  // --- DELETE CATEGORY (SUBSECTION) ---
   const removeCategory = (catId) => {
-      // 1. Remove category from order
       setCategoryOrder(prevOrder => prevOrder.filter(id => id !== catId));
-      // 2. Remove all rows belonging to that category
       setRows(prevRows => prevRows.filter(row => row.categoryId !== catId));
   };
 
@@ -328,7 +324,7 @@ export default function Calculator() {
     });
   }
 
-  // --- PDF GENERATION ---
+  // --- PDF GENERATION (A4 Portrait) ---
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
     const wasInClientMode = isClientMode;
@@ -337,10 +333,10 @@ export default function Calculator() {
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
-            margin: [2, 2, 2, 2], 
+            margin: [5, 5, 5, 5], 
             filename: `Quote_${coverRef.replace(/\//g, '-')}.pdf`, 
             html2canvas: { scale: 3, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }, 
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, // PORTRAIT for A4 Letter
             pagebreak: { mode: ['css', 'legacy'] } 
         }).from(element).save().then(() => {
              setIsPdfGenerating(false);
@@ -352,14 +348,15 @@ export default function Calculator() {
   // --- STYLES & LAYOUT ---
   const isPrint = isClientMode || isPdfGenerating;
 
-  const tableWidth = isPrint ? '100%' : 'max-content';
-  const minTableWidth = isPrint ? '280mm' : '1800px';
+  // Edit Mode = Wide scrolling table
+  // Print Mode = Fixed A4 Portrait (210mm)
+  const containerWidth = isPrint ? '210mm' : 'auto';
+  const containerMinWidth = isPrint ? '210mm' : '1800px';
 
   const tableStyle = {
-      width: tableWidth,
-      minWidth: minTableWidth,
+      width: '100%',
       borderCollapse: 'collapse',
-      fontSize: isPrint ? '10px' : '12px',
+      fontSize: isPrint ? '9px' : '12px', // Smaller font for print to fit A4
       tableLayout: 'fixed', 
   };
 
@@ -367,7 +364,7 @@ export default function Calculator() {
       background: '#f8f9fa', 
       color: '#555', 
       textTransform: 'uppercase', 
-      fontSize: isPrint ? '9px' : '11px', 
+      fontSize: isPrint ? '8px' : '11px', 
       fontWeight: 'bold', 
       padding: isPrint ? '4px 2px' : '8px 4px', 
       borderBottom:'2px solid #ddd',
@@ -380,6 +377,7 @@ export default function Calculator() {
 
   const getColWidth = (type) => {
       if (!isPrint) {
+          // EDIT MODE: Wide columns
           switch(type) {
               case 'index': return '40px';
               case 'desc': return '350px';
@@ -391,14 +389,13 @@ export default function Calculator() {
               default: return 'auto';
           }
       } else {
+          // PRINT MODE: Tight columns for A4 Portrait
           switch(type) {
-              case 'index': return '25px';
-              case 'desc': return 'auto'; 
-              case 'cost': return '55px';
-              case 'small': return '35px';
-              case 'med': return '50px';
-              case 'rate': return '65px';
-              case 'amt': return '75px';
+              case 'index': return '10mm';
+              case 'desc': return 'auto'; // Description takes remaining space
+              case 'small': return '15mm'; // Qty, Unit
+              case 'rate': return '25mm';
+              case 'amt': return '30mm';
               default: return 'auto';
           }
       }
@@ -488,7 +485,12 @@ export default function Calculator() {
                     <label style={{ fontSize:'12px', fontWeight:'bold' }}>Header Img:</label>
                     <input type="file" accept="image/*" onChange={handleImageUpload} style={{ fontSize:'11px' }} />
                 </div>
-                {/* ... other controls ... */}
+                <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
+                    <label style={{ fontSize:'12px', fontWeight:'bold' }}>Size:</label>
+                    <input type="number" value={bodyFontSize} onChange={(e) => setBodyFontSize(e.target.value)} style={{ width:'40px', padding:'2px' }} />
+                    <span style={{ fontSize:'11px' }}>pt</span>
+                </div>
+                {/* ... other style controls ... */}
             </div>
         )}
 
@@ -552,13 +554,13 @@ export default function Calculator() {
               transform: `scale(${zoomLevel})`, 
               transformOrigin: isPrint ? 'top center' : 'top left',
               transition: 'transform 0.2s ease',
-              minWidth: isPrint ? 'auto' : '1800px' 
+              minWidth: containerMinWidth 
           }}>
               <div ref={pdfRef} style={{ 
                   background: 'white', 
-                  width: isPrint ? '280mm' : 'auto', 
-                  minWidth: isPrint ? '280mm' : '1800px', 
-                  minHeight: '210mm', 
+                  width: containerWidth, 
+                  minWidth: containerMinWidth, 
+                  minHeight: '297mm', // A4 Portrait Height
                   margin: isPrint ? '0 auto' : '0', 
                   padding: isPrint ? '10mm' : '20px', 
                   boxShadow: '0 10px 40px rgba(0,0,0,0.1)', 
@@ -567,11 +569,48 @@ export default function Calculator() {
                   textAlign: 'left' 
               }}>
                 
-                {/* PAGE 1 ... */}
+                {/* PAGE 1 */}
                 <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.4', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
                     <DocumentHeader />
-                    {/* ... (Cover content same as before) ... */}
-                    <div style={{padding:'50px', textAlign:'center', color:'#999'}}>Cover Letter (Use Controls to Edit)</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', fontWeight: '600', fontSize: 'inherit' }}>
+                        <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
+                        <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
+                    </div>
+                    <div style={{ marginBottom: '20px' }}>
+                        <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
+                        <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                        <input value={coverToCompany} onChange={(e) => {setCoverToCompany(e.target.value);}} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
+                        <input value={coverToAddress} onChange={(e) => setCoverToAddress(e.target.value)} style={{ ...dynamicTextStyle, border:'none', padding:'0' }} />
+                    </div>
+                    <div style={{ marginBottom: '15px' }}>Dear Sir,</div>
+                    <div style={{ marginBottom: '15px', fontWeight: 'bold', textDecoration:'underline' }}>
+                        SUB: <input value={coverSubject} onChange={(e) => setCoverSubject(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', width: '90%', display: 'inline-block', border:'none', textDecoration:'underline' }} />
+                    </div>
+                    <div style={{ marginBottom: '10px' }}><textarea value={coverBody1} onChange={(e) => setCoverBody1(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={3} /></div>
+                    <div style={{ marginBottom: '10px' }}><textarea value={coverBody2} onChange={(e) => setCoverBody2(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={3} /></div>
+                    <div style={{ marginBottom: '20px' }}><textarea value={coverBody3} onChange={(e) => setCoverBody3(e.target.value)} style={{ ...dynamicTextStyle, minHeight: 'auto', border: 'none', overflow:'hidden' }} rows={3} /></div>
+                    <div style={{ marginTop: '10px', borderTop: '2px solid #333', paddingTop: '10px' }}>
+                        <div style={{ fontWeight: 'bold', textAlign: 'center', textDecoration: 'underline', marginBottom: '10px', fontSize:'10pt' }}>TERMS AND CONDITIONS</div>
+                        <div style={{ fontSize: '9pt', display:'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', color:'#000', fontWeight:'normal' }}>
+                            <div>
+                                <div style={sectionTitleStyle}>TAXES:</div><textarea value={termTaxes} onChange={(e) => setTermTaxes(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+                                <div style={sectionTitleStyle}>WARRANTY:</div><textarea value={termWarranty} onChange={(e) => setTermWarranty(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={2} />
+                                <div style={sectionTitleStyle}>PAYMENT:</div><textarea value={termPayment} onChange={(e) => setTermPayment(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={5} />
+                            </div>
+                            <div>
+                                <div style={sectionTitleStyle}>SUPPLY/INSTALLATION:</div><textarea value={termSupply} onChange={(e) => setTermSupply(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={8} />
+                                <div style={sectionTitleStyle}>AFTER SALES SUPPORT:</div><textarea value={termSupport} onChange={(e) => setTermSupport(e.target.value)} style={{ ...dynamicTextStyle, border: 'none', fontSize:'9pt' }} rows={4} />
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ marginTop: '30px' }}>
+                        <div>Yours truly,</div>
+                        <div style={{ fontWeight: 'bold', marginTop:'5px' }}>For United Biomedical Services,</div>
+                        <div style={{ marginTop: '30px' }}>
+                            <input value={signatoryName} onChange={(e) => setSignatoryName(e.target.value)} style={{ border: 'none', fontWeight: 'bold', display: 'block', fontSize:'11pt', width:'100%', outline:'none' }} />
+                            <input value={signatoryPhone} onChange={(e) => setSignatoryPhone(e.target.value)} style={{ border: 'none', display: 'block', fontSize:'10pt', width:'100%', outline:'none' }} />
+                        </div>
+                    </div>
                 </div> 
 
                 {isPdfGenerating && (
@@ -675,6 +714,7 @@ export default function Calculator() {
                                                 onDragEnd={drop}
                                             >
                                                 <td style={{ textAlign: 'center', padding:'4px', color:'#999' }}>{index + 1}</td>
+                                                {/* --- EDITABLE DESCRIPTION (NAME) --- */}
                                                 <td style={{ padding:'4px', fontWeight:'500' }}>
                                                     {isClientMode ? (
                                                         row.name
@@ -698,6 +738,7 @@ export default function Calculator() {
                                                 <td style={{padding:'2px'}}>
                                                     {isClientMode ? <div style={{textAlign:'center', padding:'4px'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center', fontWeight:'bold'}} />}
                                                 </td>
+                                                {/* --- EDITABLE UNIT --- */}
                                                 <td style={{padding:'2px'}}>
                                                     {isClientMode ? (
                                                         <div style={{textAlign:'center', color:'#888', fontSize:'10px'}}>{row.unit}</div>
@@ -716,7 +757,7 @@ export default function Calculator() {
                                                         <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#27ae60', background:'#f0fff4', fontSize:'10px'}}>{actualProfit.toFixed(0)}</td>
                                                         <td style={{textAlign:'right', paddingRight:'5px', color: '#888', background:'#f0fff4', fontSize:'10px'}}>{actualProfitPercent.toFixed(1)}%</td>
                                                         <td style={{textAlign:'right', paddingRight:'5px', fontWeight:'bold', color: totalGross < 0 ? 'red' : '#219150', background:'#e6fffa'}}>{totalGross.toFixed(0)}</td>
-                                                        {/* DELETE BUTTON WITH STOP PROPAGATION */}
+                                                        {/* DELETE BUTTON */}
                                                         <td style={{textAlign:'center'}}>
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); removeRow(row.uid); }} 
