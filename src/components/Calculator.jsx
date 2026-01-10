@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { productCatalog } from './data';
 import html2pdf from 'html2pdf.js';
 
@@ -56,6 +56,11 @@ export default function Calculator() {
   const pdfRef = useRef();
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  
+  // Custom Item Inputs
+  const [customItemName, setCustomItemName] = useState('');
+  const [customItemPrice, setCustomItemPrice] = useState('');
+
   const searchRef = useRef(null);
 
   // --- HANDLER: IMAGE UPLOAD ---
@@ -143,9 +148,53 @@ export default function Calculator() {
     setActiveTab('quote'); 
   };
 
+  const addCustomItem = () => {
+      if (!customItemName) return;
+      const customCategoryId = 9999; 
+      
+      if (!categoryOrder.includes(customCategoryId)) {
+          setCategoryOrder([...categoryOrder, customCategoryId]);
+      }
+      
+      const existingCat = productCatalog.find(c => c.id === customCategoryId);
+      if (!existingCat) {
+          productCatalog.push({ id: customCategoryId, name: "Custom Items", items: [] });
+      }
+
+      const price = parseFloat(customItemPrice) || 0;
+      const newRowRaw = {
+          uid: Date.now(),
+          id: `custom-${Date.now()}`,
+          categoryId: customCategoryId,
+          name: customItemName,
+          hsn: "Gen",
+          unit: "nos",
+          qty: 1,
+          factoryPrice: price,
+          transPercent: 0,
+          fittingCost: 0,
+          saddleCost: 0,
+          workCost: 0,
+          marginPercent: baseMarginPercent,
+      };
+
+      setRows([...rows, calculateRow(newRowRaw, baseMarginPercent)]);
+      setCustomItemName('');
+      setCustomItemPrice('');
+      setActiveTab('quote');
+  };
+
   const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
 
   const updateRow = (uid, field, value) => {
+    if (field === 'name') {
+        setRows(rows.map(row => {
+            if(row.uid !== uid) return row;
+            return { ...row, name: value };
+        }));
+        return;
+    }
+
     const val = value === '' ? 0 : parseFloat(value);
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
@@ -210,18 +259,6 @@ export default function Calculator() {
       setGrandTotalCost(costSum); setGrandTotalProjectValue(valueSum); setGrandTotalProfit(valueSum - costSum);
   }, [rows]);
 
-  // --- SEARCH ---
-  const searchResults = [];
-  if (searchTerm.length > 0) {
-    productCatalog.forEach(cat => {
-        cat.items.forEach(item => {
-            if (item.name.toLowerCase().includes(searchTerm.toLowerCase()) || cat.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-                searchResults.push({ categoryId: cat.id, categoryName: cat.name, ...item });
-            }
-        });
-    });
-  }
-
   // --- PDF GENERATION ---
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
@@ -243,16 +280,30 @@ export default function Calculator() {
     }, 500);
   };
 
+  // --- SEARCH ---
+  const searchResults = [];
+  if (searchTerm.length > 0) {
+    productCatalog.forEach(cat => {
+        cat.items.forEach(item => {
+            if (item.name.toLowerCase().includes(searchTerm.toLowerCase()) || cat.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+                searchResults.push({ categoryId: cat.id, categoryName: cat.name, ...item });
+            }
+        });
+    });
+  }
+
   // --- STYLES & LAYOUT LOGIC ---
   const isPrint = isClientMode || isPdfGenerating;
 
   // IMPORTANT: 
-  // In Edit Mode, we force width to 1600px to allow horizontal scrolling.
-  // In Print Mode, we force width to 280mm (A4 Landscape)
-  const containerWidth = isPrint ? '280mm' : '1600px';
+  // '100%' width is for printing (A4 constraint).
+  // 'max-content' forces the table to be as wide as needed (scrollable).
+  const tableWidth = isPrint ? '100%' : 'max-content';
+  const minTableWidth = isPrint ? '280mm' : '1800px';
 
   const tableStyle = {
-      width: '100%',
+      width: tableWidth,
+      minWidth: minTableWidth,
       borderCollapse: 'collapse',
       fontSize: isPrint ? '10px' : '12px',
       tableLayout: 'fixed', 
@@ -273,22 +324,20 @@ export default function Calculator() {
       textOverflow: 'ellipsis'
   };
 
-  // Column Width Logic
+  // Explicit Column Widths (pixels) to prevent squeezing
   const getColWidth = (type) => {
-      // In EDIT mode, use wider pixels. In PRINT mode, use tighter pixels.
       if (!isPrint) {
           switch(type) {
               case 'index': return '40px';
-              case 'desc': return '300px';
-              case 'cost': return '80px';
-              case 'small': return '60px';
-              case 'med': return '80px';
+              case 'desc': return '350px';
+              case 'cost': return '90px';
+              case 'small': return '70px';
+              case 'med': return '90px';
               case 'rate': return '120px';
-              case 'amt': return '140px';
+              case 'amt': return '150px';
               default: return 'auto';
           }
       } else {
-          // PRINT MODE (Tight fit A4 Landscape)
           switch(type) {
               case 'index': return '25px';
               case 'desc': return 'auto'; 
@@ -304,7 +353,6 @@ export default function Calculator() {
 
   const inputStyle = { 
       width: '100%', 
-      minWidth: isPrint ? 'auto' : '60px', // Force input to have size in edit mode
       border: 'none', 
       borderBottom: '1px solid #eee', 
       background: 'transparent', 
@@ -336,7 +384,6 @@ export default function Calculator() {
   
   const sectionTitleStyle = { fontSize: '10px', fontWeight: 'bold', textDecoration: 'underline', marginTop: '6px', marginBottom: '2px', color: '#444' };
 
-  // --- HEADER COMPONENT ---
   const DocumentHeader = () => (
     <div style={{ marginBottom: '15px', textAlign: 'center' }}>
       {logoUrl ? (
@@ -354,7 +401,7 @@ export default function Calculator() {
   );
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#e9ecef', width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom:'120px' }}>
+    <div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#e9ecef', width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom:'120px', overflowX: 'hidden' }}>
       
       {/* --- CONTROL BAR --- */}
       <div style={{ width: '95%', maxWidth: '1400px', marginTop: '20px', marginBottom: '20px', display: 'flex', flexDirection:'column', gap:'15px', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
@@ -404,14 +451,23 @@ export default function Calculator() {
             </div>
         )}
 
-        {/* BOTTOM ROW: GLOBAL SETTINGS */}
+        {/* BOTTOM ROW: GLOBAL SETTINGS & CUSTOM ITEM */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
              {!isClientMode ? (
-                 <div style={{ display: 'flex', alignItems: 'center', background: '#fff9db', padding: '6px 15px', borderRadius: '20px', border:'1px solid #ffe066' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#e67700', marginRight: '10px' }}>Copper Market Rate:</span>
-                    <input type="number" value={copperRate} onChange={(e) => handleCopperRateChange(e.target.value)}
-                        style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #ffe066', textAlign: 'center', fontWeight:'bold', color: '#e67700' }} />
-                </div>
+                 <div style={{ display: 'flex', gap:'20px' }}>
+                     <div style={{ display: 'flex', alignItems: 'center', background: '#fff9db', padding: '6px 15px', borderRadius: '20px', border:'1px solid #ffe066' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#e67700', marginRight: '10px' }}>Copper Market Rate:</span>
+                        <input type="number" value={copperRate} onChange={(e) => handleCopperRateChange(e.target.value)}
+                            style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #ffe066', textAlign: 'center', fontWeight:'bold', color: '#e67700' }} />
+                    </div>
+                    {/* CUSTOM ITEM */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background:'#e6f7ff', padding:'5px 10px', borderRadius:'20px', border:'1px solid #1890ff' }}>
+                        <span style={{ fontSize:'12px', fontWeight:'bold', color:'#0050b3' }}>Custom Item:</span>
+                        <input placeholder="Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} style={{ width:'120px', padding:'4px', borderRadius:'4px', border:'1px solid #ccc' }} />
+                        <input type="number" placeholder="Price..." value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} style={{ width:'60px', padding:'4px', borderRadius:'4px', border:'1px solid #ccc' }} />
+                        <button onClick={addCustomItem} style={{ background:'#1890ff', color:'white', border:'none', borderRadius:'4px', padding:'4px 8px', cursor:'pointer', fontWeight:'bold' }}>Add</button>
+                    </div>
+                 </div>
              ) : <div></div>}
 
             <div style={{display:'flex', gap:'10px'}}>
@@ -428,7 +484,7 @@ export default function Calculator() {
       {/* --- SEARCH BAR --- */}
       {(!isClientMode && activeTab === 'quote') && (
         <div ref={searchRef} style={{ width: '95%', maxWidth: '1400px', position: 'relative', marginBottom: '20px' }}>
-            <input type="text" placeholder="+ Add Item (Type name...)" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+            <input type="text" placeholder="+ Add Item from Catalog (Type name...)" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
                 style={{ width: '100%', padding: '15px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', fontSize: '16px', boxShadow:'0 2px 8px rgba(0,0,0,0.03)', outline:'none', boxSizing: 'border-box' }} />
             {showDropdown && searchResults.length > 0 && (
                 <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: 'white', maxHeight: '400px', overflowY: 'auto', border: '1px solid #eee', zIndex: 1000, boxShadow: '0 10px 30px rgba(0,0,0,0.1)', borderRadius:'8px' }}>
@@ -458,7 +514,7 @@ export default function Calculator() {
           overflow: 'auto', 
           width: '100%', 
           display: 'flex', 
-          // ALIGNMENT FIX: In edit mode, align left so scrolling works. In print mode, center.
+          // Align LEFT so horizontal scroll works naturally in edit mode
           justifyContent: isPrint ? 'center' : 'flex-start', 
           padding: '20px', 
           boxSizing: 'border-box' 
@@ -469,19 +525,18 @@ export default function Calculator() {
               transformOrigin: 'top left',
               transition: 'transform 0.2s ease',
               marginBottom: '100px',
-              // CRITICAL: Ensure container is large enough in Edit Mode
-              minWidth: isPrint ? 'auto' : '1600px'
+              minWidth: isPrint ? 'auto' : 'auto'
           }}>
               <div ref={pdfRef} style={{ 
                   background: 'white', 
-                  // WIDTH LOGIC: If Print, stick to A4 (280mm). If Edit, force 1600px for scrolling.
-                  width: containerWidth,
-                  minWidth: isPrint ? '280mm' : '1600px',
+                  width: isPrint ? '280mm' : 'auto', 
+                  minWidth: isPrint ? '280mm' : '1600px', // Forces horizontal scroll in Edit Mode
                   minHeight: '210mm', 
                   margin: '0 auto', 
                   padding: isPrint ? '10mm' : '20px', 
                   boxShadow: '0 10px 40px rgba(0,0,0,0.1)', 
-                  boxSizing: 'border-box' 
+                  boxSizing: 'border-box',
+                  display: 'inline-block' 
               }}>
                 
                 {/* ======================= PAGE 1: COVERING LETTER ======================= */}
@@ -568,7 +623,7 @@ export default function Calculator() {
                                         <th style={{...tableHeaderStyle, width: getColWidth('med'), background:'#e6fffa', color:'#006644'}}>P.Marg</th>
                                         <th style={{...tableHeaderStyle, width: getColWidth('small'), background:'#e6fffa', color:'#006644'}}>P.%</th>
                                         <th style={{...tableHeaderStyle, width: getColWidth('rate'), background:'#ccfce3', color:'#006644'}}>Gross</th>
-                                        <th style={{...tableHeaderStyle, width: getColWidth('small'), background:'#fff', borderBottom:'none'}}></th>
+                                        <th style={{...tableHeaderStyle, width:'30px', background:'#fff', borderBottom:'none'}}></th>
                                     </>
                                 )}
                             </tr>
@@ -583,8 +638,8 @@ export default function Calculator() {
                             if (catRows.length === 0 && isClientMode) return null;
 
                             return (
-                                <>
-                                    <tr key={`cat-${catId}`}>
+                                <React.Fragment key={catId}>
+                                    <tr>
                                         <td colSpan={isClientMode ? 5 : 18} style={{ padding: '15px 5px', fontWeight: 'bold', color:'#2c3e50', fontSize:'11px', borderBottom:'2px solid #eee' }}>
                                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                                                 <span>{category?.name}</span>
@@ -604,7 +659,13 @@ export default function Calculator() {
                                         return (
                                             <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
                                                 <td style={{ textAlign: 'center', padding:'4px', color:'#999' }}>{index + 1}</td>
-                                                <td style={{ padding:'4px', fontWeight:'500' }}>{row.name}</td>
+                                                <td style={{ padding:'4px', fontWeight:'500' }}>
+                                                    {row.categoryId === 9999 ? (
+                                                        <input value={row.name} onChange={(e) => updateRow(row.uid, 'name', e.target.value)} style={{ ...inputStyle, textAlign:'left', fontWeight:'bold', color:'#0050b3' }} />
+                                                    ) : (
+                                                        row.name
+                                                    )}
+                                                </td>
                                                 {!isClientMode && (
                                                     <>
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.factoryPrice.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'factoryPrice', e.target.value)} style={inputStyle} /></td>
@@ -651,7 +712,7 @@ export default function Calculator() {
                                             <td></td>
                                         </tr>
                                     )}
-                                </>
+                                </React.Fragment>
                             );
                         })}
                         </tbody>
