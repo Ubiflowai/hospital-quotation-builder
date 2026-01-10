@@ -62,6 +62,7 @@ export default function Calculator() {
   const [signatoryPhone, setSignatoryPhone] = useState("09388774401");
 
   // --- INITIALIZATION ---
+  // Safe Catalog Access (Prevents White Screen Crash)
   const CATALOG = productCatalog || [];
 
   useEffect(() => {
@@ -323,7 +324,7 @@ export default function Calculator() {
   // --- STYLES ---
   const isPrint = isClientMode || isPdfGenerating;
   const tableWidth = isPrint ? '100%' : 'max-content';
-  const minTableWidth = isPrint ? '100%' : '1800px';
+  const minTableWidth = isPrint ? '210mm' : '1800px';
 
   const tableStyle = {
       width: tableWidth,
@@ -356,11 +357,13 @@ export default function Calculator() {
           }
       } else {
           switch(type) {
-              case 'index': return '8%';
-              case 'desc': return '42%'; 
-              case 'small': return '10%';
-              case 'rate': return '15%';
-              case 'amt': return '25%';
+              case 'index': return '10mm';
+              case 'desc': return 'auto'; 
+              case 'cost': return '55px';
+              case 'small': return '15mm';
+              case 'med': return '50px';
+              case 'rate': return '25mm';
+              case 'amt': return '30mm';
               default: return 'auto';
           }
       }
@@ -584,6 +587,7 @@ export default function Calculator() {
                                                     <div style={{ fontSize:'10px', display:'flex', alignItems:'center', gap:'5px' }}>
                                                         <button onClick={() => moveCategory(catIndex, 'up')} style={{cursor:'pointer', border:'none', background:'none'}}>▲</button>
                                                         <button onClick={() => moveCategory(catIndex, 'down')} style={{cursor:'pointer', border:'none', background:'none'}}>▼</button>
+                                                        {/* DELETE SECTION BUTTON */}
                                                         <button onClick={() => removeCategory(catId)} style={{color:'white', background:'#c0392b', border:'none', borderRadius:'4px', padding:'2px 6px', cursor:'pointer', marginLeft:'10px'}}>Delete Section</button>
                                                     </div>
                                                 )}
@@ -596,6 +600,7 @@ export default function Calculator() {
                                         return (
                                             <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }} draggable={!isClientMode} onDragStart={(e) => dragStart(e, rows.indexOf(row))} onDragEnter={(e) => dragEnter(e, rows.indexOf(row))} onDragEnd={drop}>
                                                 <td style={{ textAlign: 'center', padding:'4px', color:'#999' }}>{index + 1}</td>
+                                                {/* EDITABLE NAME */}
                                                 <td style={{ padding:'4px', fontWeight:'500' }}>
                                                     {isClientMode ? row.name : <input value={row.name} onChange={(e) => updateRow(row.uid, 'name', e.target.value)} style={{ ...inputStyle, textAlign:'left', fontWeight:'bold', color: row.categoryId === 9999 ? '#0050b3' : '#333' }} />}
                                                 </td>
@@ -621,6 +626,7 @@ export default function Calculator() {
                                                         <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#27ae60', background:'#f0fff4', fontSize:'10px'}}>{actualProfit.toFixed(0)}</td>
                                                         <td style={{textAlign:'right', paddingRight:'5px', color: '#888', background:'#f0fff4', fontSize:'10px'}}>{(row.internalCost > 0 ? (actualProfit / row.internalCost) * 100 : 0).toFixed(1)}%</td>
                                                         <td style={{textAlign:'right', paddingRight:'5px', fontWeight:'bold', color: totalGross < 0 ? 'red' : '#219150', background:'#e6fffa'}}>{totalGross.toFixed(0)}</td>
+                                                        {/* DELETE ROW BUTTON */}
                                                         <td style={{textAlign:'center'}}>
                                                             <button onClick={(e) => { e.stopPropagation(); removeRow(row.uid); }} style={{color:'white', background:'#e74c3c', border:'none', borderRadius:'50%', width:'20px', height:'20px', cursor:'pointer', fontSize:'12px', lineHeight:'1', display:'flex', alignItems:'center', justifyContent:'center'}}>×</button>
                                                         </td>
