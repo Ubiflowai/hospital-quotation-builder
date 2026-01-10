@@ -148,14 +148,18 @@ export default function Calculator() {
     setActiveTab('quote'); 
   };
 
+  // Add Custom Item Logic
   const addCustomItem = () => {
       if (!customItemName) return;
+      
+      // Default to "Custom Items" category (ID 9999)
       const customCategoryId = 9999; 
       
       if (!categoryOrder.includes(customCategoryId)) {
           setCategoryOrder([...categoryOrder, customCategoryId]);
       }
       
+      // Ensure category exists in catalog for display name purposes
       const existingCat = productCatalog.find(c => c.id === customCategoryId);
       if (!existingCat) {
           productCatalog.push({ id: customCategoryId, name: "Custom Items", items: [] });
@@ -187,18 +191,22 @@ export default function Calculator() {
   const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
 
   const updateRow = (uid, field, value) => {
-    if (field === 'name') {
+    // 1. Handle TEXT fields (Name, Unit, HSN)
+    if (field === 'name' || field === 'unit' || field === 'hsn') {
         setRows(rows.map(row => {
             if(row.uid !== uid) return row;
-            return { ...row, name: value };
+            return { ...row, [field]: value };
         }));
         return;
     }
 
+    // 2. Handle NUMBER fields
     const val = value === '' ? 0 : parseFloat(value);
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
         const updated = { ...row, [field]: val };
+        
+        // Recalculate based on which field changed
         if (field === 'transAmt') {
              updated.transPercent = row.factoryPrice > 0 ? (val / row.factoryPrice) * 100 : 0;
         } else if (field === 'marginAmt') {
@@ -259,6 +267,18 @@ export default function Calculator() {
       setGrandTotalCost(costSum); setGrandTotalProjectValue(valueSum); setGrandTotalProfit(valueSum - costSum);
   }, [rows]);
 
+  // --- SEARCH ---
+  const searchResults = [];
+  if (searchTerm.length > 0) {
+    productCatalog.forEach(cat => {
+        cat.items.forEach(item => {
+            if (item.name.toLowerCase().includes(searchTerm.toLowerCase()) || cat.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+                searchResults.push({ categoryId: cat.id, categoryName: cat.name, ...item });
+            }
+        });
+    });
+  }
+
   // --- PDF GENERATION ---
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
@@ -280,24 +300,10 @@ export default function Calculator() {
     }, 500);
   };
 
-  // --- SEARCH ---
-  const searchResults = [];
-  if (searchTerm.length > 0) {
-    productCatalog.forEach(cat => {
-        cat.items.forEach(item => {
-            if (item.name.toLowerCase().includes(searchTerm.toLowerCase()) || cat.name.toLowerCase().includes(searchTerm.toLowerCase())) {
-                searchResults.push({ categoryId: cat.id, categoryName: cat.name, ...item });
-            }
-        });
-    });
-  }
-
   // --- STYLES & LAYOUT LOGIC ---
   const isPrint = isClientMode || isPdfGenerating;
 
-  // IMPORTANT: 
-  // '100%' width is for printing (A4 constraint).
-  // 'max-content' forces the table to be as wide as needed (scrollable).
+  // Layout Logic: Force scrollbar in Edit Mode
   const tableWidth = isPrint ? '100%' : 'max-content';
   const minTableWidth = isPrint ? '280mm' : '1800px';
 
@@ -324,9 +330,9 @@ export default function Calculator() {
       textOverflow: 'ellipsis'
   };
 
-  // Explicit Column Widths (pixels) to prevent squeezing
   const getColWidth = (type) => {
       if (!isPrint) {
+          // EDIT MODE: WIDE
           switch(type) {
               case 'index': return '40px';
               case 'desc': return '350px';
@@ -338,6 +344,7 @@ export default function Calculator() {
               default: return 'auto';
           }
       } else {
+          // PRINT MODE: TIGHT A4
           switch(type) {
               case 'index': return '25px';
               case 'desc': return 'auto'; 
@@ -412,9 +419,9 @@ export default function Calculator() {
              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                  <div style={{ display:'flex', alignItems:'center', gap:'5px', background:'#f1f3f5', padding:'5px 10px', borderRadius:'20px' }}>
                      <span style={{ fontSize:'12px', fontWeight:'bold', color:'#777', marginRight:'5px' }}>ZOOM:</span>
-                     <button onClick={handleZoomOut} style={{ cursor:'pointer', width:'25px', height:'25px', borderRadius:'50%', border:'none', background:'#ddd', fontWeight:'bold' }}>-</button>
+                     <button onClick={() => setZoomLevel(z => Math.max(0.5, z - 0.1))} style={{ cursor:'pointer', width:'25px', height:'25px', borderRadius:'50%', border:'none', background:'#ddd', fontWeight:'bold' }}>-</button>
                      <span style={{ fontSize:'12px', minWidth:'35px', textAlign:'center' }}>{Math.round(zoomLevel * 100)}%</span>
-                     <button onClick={handleZoomIn} style={{ cursor:'pointer', width:'25px', height:'25px', borderRadius:'50%', border:'none', background:'#ddd', fontWeight:'bold' }}>+</button>
+                     <button onClick={() => setZoomLevel(z => Math.min(2.0, z + 0.1))} style={{ cursor:'pointer', width:'25px', height:'25px', borderRadius:'50%', border:'none', background:'#ddd', fontWeight:'bold' }}>+</button>
                  </div>
                  <div style={{ display:'flex', gap:'10px' }}>
                      <button onClick={() => setActiveTab('cover')} style={{ padding: '8px 20px', cursor: 'pointer', borderRadius: '20px', fontWeight: '600', border: 'none', background: activeTab === 'cover' ? '#3498db' : '#f1f3f5', color: activeTab === 'cover' ? 'white' : '#555', transition: 'all 0.2s' }}>
@@ -514,7 +521,6 @@ export default function Calculator() {
           overflow: 'auto', 
           width: '100%', 
           display: 'flex', 
-          // Align LEFT so horizontal scroll works naturally in edit mode
           justifyContent: isPrint ? 'center' : 'flex-start', 
           padding: '20px', 
           boxSizing: 'border-box' 
@@ -530,7 +536,7 @@ export default function Calculator() {
               <div ref={pdfRef} style={{ 
                   background: 'white', 
                   width: isPrint ? '280mm' : 'auto', 
-                  minWidth: isPrint ? '280mm' : '1600px', // Forces horizontal scroll in Edit Mode
+                  minWidth: isPrint ? '280mm' : '1600px', 
                   minHeight: '210mm', 
                   margin: '0 auto', 
                   padding: isPrint ? '10mm' : '20px', 
@@ -659,11 +665,12 @@ export default function Calculator() {
                                         return (
                                             <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
                                                 <td style={{ textAlign: 'center', padding:'4px', color:'#999' }}>{index + 1}</td>
+                                                {/* EDITABLE NAME FIELD FOR ALL ROWS */}
                                                 <td style={{ padding:'4px', fontWeight:'500' }}>
-                                                    {row.categoryId === 9999 ? (
-                                                        <input value={row.name} onChange={(e) => updateRow(row.uid, 'name', e.target.value)} style={{ ...inputStyle, textAlign:'left', fontWeight:'bold', color:'#0050b3' }} />
-                                                    ) : (
+                                                    {isClientMode ? (
                                                         row.name
+                                                    ) : (
+                                                        <input value={row.name} onChange={(e) => updateRow(row.uid, 'name', e.target.value)} style={{ ...inputStyle, textAlign:'left', fontWeight:'bold', color: row.categoryId === 9999 ? '#0050b3' : '#333' }} />
                                                     )}
                                                 </td>
                                                 {!isClientMode && (
@@ -682,7 +689,14 @@ export default function Calculator() {
                                                 <td style={{padding:'2px'}}>
                                                     {isClientMode ? <div style={{textAlign:'center', padding:'4px'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center', fontWeight:'bold'}} />}
                                                 </td>
-                                                <td style={{textAlign:'center', color:'#888', fontSize:'10px'}}>{row.unit}</td>
+                                                {/* EDITABLE UNIT FIELD */}
+                                                <td style={{padding:'2px'}}>
+                                                    {isClientMode ? (
+                                                        <div style={{textAlign:'center', color:'#888', fontSize:'10px'}}>{row.unit}</div>
+                                                    ) : (
+                                                        <input value={row.unit} onChange={(e) => updateRow(row.uid, 'unit', e.target.value)} style={{ ...inputStyle, color:'#888' }} />
+                                                    )}
+                                                </td>
                                                 <td style={{padding:'2px'}}>
                                                     {isClientMode ? <div style={{textAlign:'right', padding:'4px'}}>{row.quotedPrice.toFixed(2)}</div> : <input type="number" value={row.quotedPrice} onChange={(e)=>updateRow(row.uid, 'quotedPrice', e.target.value)} style={{...inputStyle, fontWeight:'bold', color:'#2980b9'}} />}
                                                 </td>
