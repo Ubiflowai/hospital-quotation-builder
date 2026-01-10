@@ -57,7 +57,7 @@ export default function Calculator() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   
-  // Custom Item Inputs
+  // CUSTOM ITEM INPUTS
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
 
@@ -148,13 +148,13 @@ export default function Calculator() {
     setActiveTab('quote'); 
   };
 
-  // Add Custom Item Logic
+  // --- ADD CUSTOM ITEM FUNCTION ---
   const addCustomItem = () => {
       if (!customItemName) return;
       
-      // Default to "Custom Items" category (ID 9999)
       const customCategoryId = 9999; 
       
+      // Add custom category to order if not there
       if (!categoryOrder.includes(customCategoryId)) {
           setCategoryOrder([...categoryOrder, customCategoryId]);
       }
@@ -168,7 +168,7 @@ export default function Calculator() {
       const price = parseFloat(customItemPrice) || 0;
       const newRowRaw = {
           uid: Date.now(),
-          id: `custom-${Date.now()}`,
+          id: `custom-${Date.now()}`, // Unique ID
           categoryId: customCategoryId,
           name: customItemName,
           hsn: "Gen",
@@ -185,14 +185,14 @@ export default function Calculator() {
       setRows([...rows, calculateRow(newRowRaw, baseMarginPercent)]);
       setCustomItemName('');
       setCustomItemPrice('');
-      setActiveTab('quote');
+      setActiveTab('quote'); // Switch to quote tab to see item
   };
 
   const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
 
   const updateRow = (uid, field, value) => {
-    // 1. Handle TEXT fields (Name, Unit, HSN)
-    if (field === 'name' || field === 'unit' || field === 'hsn') {
+    // 1. Text Fields (Name/Unit)
+    if (field === 'name' || field === 'unit') {
         setRows(rows.map(row => {
             if(row.uid !== uid) return row;
             return { ...row, [field]: value };
@@ -200,13 +200,12 @@ export default function Calculator() {
         return;
     }
 
-    // 2. Handle NUMBER fields
+    // 2. Number Fields
     const val = value === '' ? 0 : parseFloat(value);
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
         const updated = { ...row, [field]: val };
         
-        // Recalculate based on which field changed
         if (field === 'transAmt') {
              updated.transPercent = row.factoryPrice > 0 ? (val / row.factoryPrice) * 100 : 0;
         } else if (field === 'marginAmt') {
@@ -300,12 +299,12 @@ export default function Calculator() {
     }, 500);
   };
 
-  // --- STYLES & LAYOUT LOGIC ---
+  // --- STYLES ---
   const isPrint = isClientMode || isPdfGenerating;
 
-  // Layout Logic: Force scrollbar in Edit Mode
+  // LAYOUT FIX: 'max-content' forces the table to grow sideways in Edit Mode
   const tableWidth = isPrint ? '100%' : 'max-content';
-  const minTableWidth = isPrint ? '280mm' : '1800px';
+  const minTableWidth = isPrint ? '280mm' : '2000px'; // 2000px ensures horizontal scroll!
 
   const tableStyle = {
       width: tableWidth,
@@ -332,7 +331,7 @@ export default function Calculator() {
 
   const getColWidth = (type) => {
       if (!isPrint) {
-          // EDIT MODE: WIDE
+          // EDIT MODE: Very Wide
           switch(type) {
               case 'index': return '40px';
               case 'desc': return '350px';
@@ -344,7 +343,7 @@ export default function Calculator() {
               default: return 'auto';
           }
       } else {
-          // PRINT MODE: TIGHT A4
+          // PRINT MODE: Tight A4
           switch(type) {
               case 'index': return '25px';
               case 'desc': return 'auto'; 
@@ -352,7 +351,7 @@ export default function Calculator() {
               case 'small': return '35px';
               case 'med': return '50px';
               case 'rate': return '65px';
-              case 'amt': return '75px';
+              case 'amt': return '85px';
               default: return 'auto';
           }
       }
@@ -413,7 +412,7 @@ export default function Calculator() {
       {/* --- CONTROL BAR --- */}
       <div style={{ width: '95%', maxWidth: '1400px', marginTop: '20px', marginBottom: '20px', display: 'flex', flexDirection:'column', gap:'15px', background: 'white', padding: '15px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
         
-        {/* TOP ROW */}
+        {/* TOP ROW: Title & Zoom */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #f0f0f0', paddingBottom:'10px'}}>
              <h2 style={{ margin: 0, color: '#2c3e50', fontSize: '20px' }}>Quotation Manager</h2>
              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
@@ -434,7 +433,7 @@ export default function Calculator() {
              </div>
         </div>
 
-        {/* MIDDLE ROW: VISUAL SETTINGS */}
+        {/* MIDDLE ROW: Visual Settings */}
         {!isClientMode && activeTab === 'cover' && (
             <div style={{ display:'flex', gap:'20px', alignItems:'center', background:'#f8f9fa', padding:'10px', borderRadius:'6px' }}>
                 <div style={{ fontWeight:'bold', fontSize:'12px', color:'#555' }}>LETTER STYLE:</div>
@@ -458,21 +457,23 @@ export default function Calculator() {
             </div>
         )}
 
-        {/* BOTTOM ROW: GLOBAL SETTINGS & CUSTOM ITEM */}
+        {/* BOTTOM ROW: Global Settings & Custom Item */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
              {!isClientMode ? (
-                 <div style={{ display: 'flex', gap:'20px' }}>
+                 <div style={{ display: 'flex', gap:'20px', alignItems:'center' }}>
                      <div style={{ display: 'flex', alignItems: 'center', background: '#fff9db', padding: '6px 15px', borderRadius: '20px', border:'1px solid #ffe066' }}>
                         <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#e67700', marginRight: '10px' }}>Copper Market Rate:</span>
                         <input type="number" value={copperRate} onChange={(e) => handleCopperRateChange(e.target.value)}
                             style={{ width: '80px', padding: '4px', borderRadius: '4px', border: '1px solid #ffe066', textAlign: 'center', fontWeight:'bold', color: '#e67700' }} />
                     </div>
-                    {/* CUSTOM ITEM */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background:'#e6f7ff', padding:'5px 10px', borderRadius:'20px', border:'1px solid #1890ff' }}>
-                        <span style={{ fontSize:'12px', fontWeight:'bold', color:'#0050b3' }}>Custom Item:</span>
-                        <input placeholder="Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} style={{ width:'120px', padding:'4px', borderRadius:'4px', border:'1px solid #ccc' }} />
-                        <input type="number" placeholder="Price..." value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} style={{ width:'60px', padding:'4px', borderRadius:'4px', border:'1px solid #ccc' }} />
-                        <button onClick={addCustomItem} style={{ background:'#1890ff', color:'white', border:'none', borderRadius:'4px', padding:'4px 8px', cursor:'pointer', fontWeight:'bold' }}>Add</button>
+                    {/* --- CUSTOM ITEM ADDER --- */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background:'#e6f7ff', padding:'6px 15px', borderRadius:'20px', border:'1px solid #1890ff' }}>
+                        <span style={{ fontSize:'13px', fontWeight:'bold', color:'#0050b3' }}>+ Custom Item:</span>
+                        <input placeholder="Item Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
+                            style={{ width:'150px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
+                        <input type="number" placeholder="Price..." value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} 
+                            style={{ width:'70px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
+                        <button onClick={addCustomItem} style={{ background:'#1890ff', color:'white', border:'none', borderRadius:'4px', padding:'5px 10px', cursor:'pointer', fontWeight:'bold' }}>Add</button>
                     </div>
                  </div>
              ) : <div></div>}
@@ -514,14 +515,14 @@ export default function Calculator() {
       )}
 
       {/* ===================================================================================== */}
-      {/* PDF DOCUMENT WRAPPER (SCROLLABLE & WIDE)                                              */}
+      {/* PDF DOCUMENT WRAPPER                                                                  */}
       {/* ===================================================================================== */}
       
       <div style={{ 
           overflow: 'auto', 
           width: '100%', 
           display: 'flex', 
-          justifyContent: isPrint ? 'center' : 'flex-start', 
+          justifyContent: isPrint ? 'center' : 'flex-start', // Left align in Edit Mode for scrolling
           padding: '20px', 
           boxSizing: 'border-box' 
       }}>
@@ -536,7 +537,7 @@ export default function Calculator() {
               <div ref={pdfRef} style={{ 
                   background: 'white', 
                   width: isPrint ? '280mm' : 'auto', 
-                  minWidth: isPrint ? '280mm' : '1600px', 
+                  minWidth: isPrint ? '280mm' : '2000px', // Forces scrollbar
                   minHeight: '210mm', 
                   margin: '0 auto', 
                   padding: isPrint ? '10mm' : '20px', 
@@ -552,6 +553,7 @@ export default function Calculator() {
                         <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                         <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
+                    {/* ... (Cover letter content omitted for brevity) ... */}
                     <div style={{ marginBottom: '20px' }}>
                         <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
                         <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
@@ -602,7 +604,7 @@ export default function Calculator() {
                         <div style={{ fontSize: '12px', color:'#666' }}>Date: {coverDate}</div>
                     </div>
 
-                    <table style={tableStyle}>
+                    <table style={{ ...tableStyle, width: '100%' }}>
                         <thead>
                             <tr style={{height:'35px'}}>
                                 <th style={{...tableHeaderStyle, width: getColWidth('index')}}>#</th>
@@ -665,7 +667,7 @@ export default function Calculator() {
                                         return (
                                             <tr key={row.uid} style={{ borderBottom: '1px solid #f1f1f1' }}>
                                                 <td style={{ textAlign: 'center', padding:'4px', color:'#999' }}>{index + 1}</td>
-                                                {/* EDITABLE NAME FIELD FOR ALL ROWS */}
+                                                {/* --- EDITABLE DESCRIPTION (NAME) --- */}
                                                 <td style={{ padding:'4px', fontWeight:'500' }}>
                                                     {isClientMode ? (
                                                         row.name
@@ -689,12 +691,12 @@ export default function Calculator() {
                                                 <td style={{padding:'2px'}}>
                                                     {isClientMode ? <div style={{textAlign:'center', padding:'4px'}}>{row.qty}</div> : <input type="number" value={row.qty} onChange={(e)=>updateRow(row.uid, 'qty', e.target.value)} style={{...inputStyle, textAlign:'center', fontWeight:'bold'}} />}
                                                 </td>
-                                                {/* EDITABLE UNIT FIELD */}
+                                                {/* --- EDITABLE UNIT --- */}
                                                 <td style={{padding:'2px'}}>
                                                     {isClientMode ? (
                                                         <div style={{textAlign:'center', color:'#888', fontSize:'10px'}}>{row.unit}</div>
                                                     ) : (
-                                                        <input value={row.unit} onChange={(e) => updateRow(row.uid, 'unit', e.target.value)} style={{ ...inputStyle, color:'#888' }} />
+                                                        <input value={row.unit} onChange={(e) => updateRow(row.uid, 'unit', e.target.value)} style={{ ...inputStyle, textAlign:'center', color:'#888' }} />
                                                     )}
                                                 </td>
                                                 <td style={{padding:'2px'}}>
