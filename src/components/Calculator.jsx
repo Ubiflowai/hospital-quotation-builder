@@ -203,17 +203,8 @@ export default function Calculator() {
       setActiveTab('quote');
   };
 
-  // --- DELETE ROW ---
   const removeRow = (uid) => {
       setRows(currentRows => currentRows.filter(r => r.uid !== uid));
-  };
-
-  // --- DELETE CATEGORY (SUBSECTION) ---
-  const removeCategory = (catId) => {
-      // 1. Remove category from order
-      setCategoryOrder(prevOrder => prevOrder.filter(id => id !== catId));
-      // 2. Remove all rows belonging to that category
-      setRows(prevRows => prevRows.filter(row => row.categoryId !== catId));
   };
 
   const updateRow = (uid, field, value) => {
@@ -398,7 +389,7 @@ export default function Calculator() {
               case 'small': return '35px';
               case 'med': return '50px';
               case 'rate': return '65px';
-              case 'amt': return '75px';
+              case 'amt': return '85px';
               default: return 'auto';
           }
       }
@@ -454,7 +445,8 @@ export default function Calculator() {
   );
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#e9ecef', width: '100vw', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom:'120px', overflowX: 'hidden' }}>
+    // MAIN WRAPPER: height: 100vh, overflow: hidden prevents whole page scroll
+    <div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#e9ecef', width: '100vw', height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       
       {/* --- CONTROL BAR --- */}
       <div style={{ width: '95%', maxWidth: '1400px', marginTop: '10px', marginBottom: '10px', display: 'flex', flexDirection:'column', gap:'10px', background: 'white', padding: '10px 20px', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.05)', flexShrink: 0 }}>
@@ -483,12 +475,13 @@ export default function Calculator() {
         {/* MIDDLE ROW: VISUAL SETTINGS */}
         {!isClientMode && activeTab === 'cover' && (
             <div style={{ display:'flex', gap:'20px', alignItems:'center', background:'#f8f9fa', padding:'10px', borderRadius:'6px' }}>
+                {/* ... visual settings controls ... */}
                 <div style={{ fontWeight:'bold', fontSize:'12px', color:'#555' }}>LETTER STYLE:</div>
                 <div style={{ display:'flex', alignItems:'center', gap:'5px' }}>
                     <label style={{ fontSize:'12px', fontWeight:'bold' }}>Header Img:</label>
                     <input type="file" accept="image/*" onChange={handleImageUpload} style={{ fontSize:'11px' }} />
                 </div>
-                {/* ... other controls ... */}
+                {/* ... other style controls ... */}
             </div>
         )}
 
@@ -536,13 +529,43 @@ export default function Calculator() {
         </div>
       </div>
 
-      {/* --- SCROLLABLE WRAPPER (FIXED HEIGHT) --- */}
+      {/* --- SEARCH BAR --- */}
+      {(!isClientMode && activeTab === 'quote') && (
+        <div ref={searchRef} style={{ width: '95%', maxWidth: '1400px', position: 'relative', marginBottom: '10px', flexShrink: 0 }}>
+            <input type="text" placeholder="+ Add Item from Catalog (Type name...)" value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
+                style={{ width: '100%', padding: '10px 20px', borderRadius: '8px', border: '1px solid #e0e0e0', fontSize: '14px', boxShadow:'0 2px 8px rgba(0,0,0,0.03)', outline:'none', boxSizing: 'border-box' }} />
+            {showDropdown && searchResults.length > 0 && (
+                <div style={{ position: 'absolute', top: '105%', left: 0, right: 0, background: 'white', maxHeight: '300px', overflowY: 'auto', border: '1px solid #eee', zIndex: 1000, boxShadow: '0 10px 30px rgba(0,0,0,0.1)', borderRadius:'8px' }}>
+                    {searchResults.map((item, idx) => {
+                        let displayPrice = item.factoryPrice;
+                        if(item.weight !== undefined) displayPrice = item.weight * copperRate;
+                        return (
+                            <div key={idx} onClick={() => addRow(item.id, item.categoryId)} 
+                                style={{ padding: '10px 20px', borderBottom: '1px solid #f8f9fa', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems:'center' }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#f1f8ff'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'white'}>
+                                <div><span style={{ fontWeight: '600', color:'#3498db', fontSize:'13px' }}>{item.categoryName}</span> <span style={{color:'#555', fontSize:'13px'}}>— {item.name}</span></div>
+                                <div style={{ color: '#888', fontSize:'12px', background:'#f8f9fa', padding:'2px 8px', borderRadius:'4px' }}>Base: ₹{displayPrice?.toFixed(0)}</div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+      )}
+
+      {/* ===================================================================================== */}
+      {/* SCROLLABLE WRAPPER (FIXED HEIGHT)                                                     */}
+      {/* ===================================================================================== */}
+      
       <div style={{ 
           width: '100%', 
+          // FIX: Calculate height based on 100vh minus the headers (~160px). 
+          // 'auto' allows full expansion during Print/Client mode.
           height: isPrint ? 'auto' : 'calc(100vh - 160px)', 
-          overflow: isPrint ? 'visible' : 'auto', 
+          overflow: isPrint ? 'visible' : 'auto', // This enables the SCROLLBARS on the container
           padding: '20px', 
-          paddingBottom: '100px', 
+          paddingBottom: '100px', // Extra space at bottom for safe scrolling
           boxSizing: 'border-box',
           textAlign: isPrint ? 'center' : 'left', 
       }}>
@@ -552,6 +575,7 @@ export default function Calculator() {
               transform: `scale(${zoomLevel})`, 
               transformOrigin: isPrint ? 'top center' : 'top left',
               transition: 'transform 0.2s ease',
+              // Force minWidth to trigger horizontal scrollbar in parent
               minWidth: isPrint ? 'auto' : '1800px' 
           }}>
               <div ref={pdfRef} style={{ 
@@ -567,18 +591,18 @@ export default function Calculator() {
                   textAlign: 'left' 
               }}>
                 
-                {/* PAGE 1 ... */}
+                {/* ... PAGE 1 (Cover Letter) is here (same as before) ... */}
                 <div className="page-1" style={{ fontSize: `${bodyFontSize}pt`, lineHeight: '1.4', color: bodyColor, fontWeight: isBodyBold ? 'bold' : 'normal', display: (activeTab === 'cover' || isPdfGenerating) ? 'block' : 'none' }}>
                     <DocumentHeader />
-                    {/* ... (Cover content same as before) ... */}
-                    <div style={{padding:'50px', textAlign:'center', color:'#999'}}>Cover Letter (Use Controls to Edit)</div>
+                    {/* ... (Cover letter content logic same as previous) ... */}
+                    <div style={{padding:'50px', textAlign:'center', color:'#999'}}>Cover Letter Preview (Editable via controls)</div>
                 </div> 
 
                 {isPdfGenerating && (
                     <div className="html2pdf__page-break" style={{ pageBreakBefore: 'always', height: '0' }}></div>
                 )}
 
-                {/* PAGE 2 */}
+                {/* ======================= PAGE 2: QUOTATION TABLE ======================= */}
                 <div className="page-2" style={{ paddingTop: '10px', display: (activeTab === 'quote' || isPdfGenerating) ? 'block' : 'none' }}>
                     <DocumentHeader />
                     <div style={{ textAlign: 'right', marginBottom: '20px' }}>
@@ -634,7 +658,6 @@ export default function Calculator() {
                                     <tr>
                                         <td colSpan={isClientMode ? 5 : 18} style={{ padding: '15px 5px', fontWeight: 'bold', color:'#2c3e50', fontSize:'11px', borderBottom:'2px solid #eee' }}>
                                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                                {/* EDITABLE CATEGORY NAME */}
                                                 {isClientMode ? (
                                                     <span>{displayCatName}</span>
                                                 ) : (
@@ -646,16 +669,9 @@ export default function Calculator() {
                                                 )}
                                                 
                                                 {!isClientMode && (
-                                                    <div style={{ fontSize:'10px', display:'flex', alignItems:'center', gap:'5px' }}>
+                                                    <div style={{ fontSize:'10px' }}>
                                                         <button onClick={() => moveCategory(catIndex, 'up')} style={{cursor:'pointer', border:'none', background:'none', padding:'0 5px'}}>▲</button>
                                                         <button onClick={() => moveCategory(catIndex, 'down')} style={{cursor:'pointer', border:'none', background:'none', padding:'0 5px'}}>▼</button>
-                                                        {/* DELETE CATEGORY BUTTON */}
-                                                        <button 
-                                                            onClick={() => removeCategory(catId)}
-                                                            style={{color:'white', background:'#c0392b', border:'none', borderRadius:'4px', padding:'2px 6px', cursor:'pointer', fontSize:'10px', marginLeft:'10px'}}
-                                                        >
-                                                            Delete Section
-                                                        </button>
                                                     </div>
                                                 )}
                                             </div>
@@ -716,7 +732,6 @@ export default function Calculator() {
                                                         <td style={{textAlign:'right', paddingRight:'5px', color: actualProfit < 0 ? 'red' : '#27ae60', background:'#f0fff4', fontSize:'10px'}}>{actualProfit.toFixed(0)}</td>
                                                         <td style={{textAlign:'right', paddingRight:'5px', color: '#888', background:'#f0fff4', fontSize:'10px'}}>{actualProfitPercent.toFixed(1)}%</td>
                                                         <td style={{textAlign:'right', paddingRight:'5px', fontWeight:'bold', color: totalGross < 0 ? 'red' : '#219150', background:'#e6fffa'}}>{totalGross.toFixed(0)}</td>
-                                                        {/* DELETE BUTTON WITH STOP PROPAGATION */}
                                                         <td style={{textAlign:'center'}}>
                                                             <button 
                                                                 onClick={(e) => { e.stopPropagation(); removeRow(row.uid); }} 
