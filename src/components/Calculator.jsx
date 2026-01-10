@@ -57,7 +57,7 @@ export default function Calculator() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   
-  // --- CUSTOM ITEM STATE ---
+  // --- CUSTOM ITEM INPUTS ---
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
 
@@ -154,22 +154,20 @@ export default function Calculator() {
       
       const customCategoryId = 9999; 
       
-      // Ensure category is in the order list
       if (!categoryOrder.includes(customCategoryId)) {
           setCategoryOrder([...categoryOrder, customCategoryId]);
       }
       
-      // Add a dummy category to productCatalog for display name if it's missing
-      const catExists = productCatalog.find(c => c.id === customCategoryId);
-      if (!catExists) {
+      // Ensure "Custom Items" category exists in catalog for display
+      const existingCat = productCatalog.find(c => c.id === customCategoryId);
+      if (!existingCat) {
           productCatalog.push({ id: customCategoryId, name: "Custom Items", items: [] });
       }
 
       const price = parseFloat(customItemPrice) || 0;
-
       const newRowRaw = {
           uid: Date.now(),
-          id: `custom-${Date.now()}`, // Unique ID
+          id: `custom-${Date.now()}`,
           categoryId: customCategoryId,
           name: customItemName,
           hsn: "Gen",
@@ -192,16 +190,16 @@ export default function Calculator() {
   const removeRow = (uid) => setRows(rows.filter(r => r.uid !== uid));
 
   const updateRow = (uid, field, value) => {
-    // 1. Text Fields (Name/Unit)
-    if (field === 'name' || field === 'unit') {
+    // 1. EDIT DESCRIPTION OR UNIT (Text Fields)
+    if (field === 'name' || field === 'unit' || field === 'hsn') {
         setRows(rows.map(row => {
-            if (row.uid !== uid) return row;
+            if(row.uid !== uid) return row;
             return { ...row, [field]: value };
         }));
         return;
     }
 
-    // 2. Numeric Fields
+    // 2. NUMBER FIELDS
     const val = value === '' ? 0 : parseFloat(value);
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
@@ -303,10 +301,8 @@ export default function Calculator() {
   // --- STYLES & LAYOUT LOGIC ---
   const isPrint = isClientMode || isPdfGenerating;
 
-  // LAYOUT FIX: 'max-content' forces the table to grow sideways in Edit Mode
   const tableWidth = isPrint ? '100%' : 'max-content';
-  // Forces scrollbar in Edit Mode (2000px is wider than most screens)
-  const minTableWidth = isPrint ? '280mm' : '1800px'; 
+  const minTableWidth = isPrint ? '280mm' : '1800px';
 
   const tableStyle = {
       width: tableWidth,
@@ -333,7 +329,7 @@ export default function Calculator() {
 
   const getColWidth = (type) => {
       if (!isPrint) {
-          // EDIT MODE: Very Wide
+          // EDIT MODE: Wide
           switch(type) {
               case 'index': return '40px';
               case 'desc': return '350px';
@@ -345,7 +341,7 @@ export default function Calculator() {
               default: return 'auto';
           }
       } else {
-          // PRINT MODE: Tight A4
+          // PRINT MODE: Tight
           switch(type) {
               case 'index': return '25px';
               case 'desc': return 'auto'; 
@@ -353,7 +349,7 @@ export default function Calculator() {
               case 'small': return '35px';
               case 'med': return '50px';
               case 'rate': return '65px';
-              case 'amt': return '85px';
+              case 'amt': return '75px';
               default: return 'auto';
           }
       }
@@ -471,7 +467,7 @@ export default function Calculator() {
                     {/* CUSTOM ITEM ADDER */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px', background:'#e6f7ff', padding:'6px 15px', borderRadius:'20px', border:'1px solid #1890ff' }}>
                         <span style={{ fontSize:'13px', fontWeight:'bold', color:'#0050b3' }}>+ Custom Item:</span>
-                        <input placeholder="Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
+                        <input placeholder="Item Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
                             style={{ width:'150px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
                         <input type="number" placeholder="Price..." value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} 
                             style={{ width:'70px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
@@ -556,6 +552,7 @@ export default function Calculator() {
                         <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                         <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
+                    {/* ... (Cover letter content) ... */}
                     <div style={{ marginBottom: '20px' }}>
                         <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
                         <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
@@ -686,7 +683,7 @@ export default function Calculator() {
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.saddleCost} onChange={(e)=>updateRow(row.uid, 'saddleCost', e.target.value)} style={inputStyle} /></td>
                                                         <td style={{padding:'2px', background:'#fdfdfd'}}><input type="number" value={row.workCost} onChange={(e)=>updateRow(row.uid, 'workCost', e.target.value)} style={inputStyle} /></td>
                                                         <td style={{padding:'2px', background:'#f8f9fa', color:'#666', textAlign:'center', fontSize:'10px'}}>{row.internalCost.toFixed(0)}</td>
-                                                        <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginPercent.toFixed(1)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={...inputStyle, color:'#e67e22', fontWeight:'bold'}} /></td>
+                                                        <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginPercent.toFixed(1)} onChange={(e)=>updateRow(row.uid, 'marginPercent', e.target.value)} style={inputStyle} /></td>
                                                         <td style={{padding:'2px', background:'#f8f9fa'}}><input type="number" value={row.marginAmt.toFixed(0)} onChange={(e)=>updateRow(row.uid, 'marginAmt', e.target.value)} style={inputStyle} /></td>
                                                     </>
                                                 )}
