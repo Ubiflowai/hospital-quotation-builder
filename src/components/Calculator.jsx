@@ -6,7 +6,7 @@ export default function Calculator() {
   // --- STATE: DATA ---
   const [rows, setRows] = useState([]); 
   const [categoryOrder, setCategoryOrder] = useState([]); 
-  const [categoryNames, setCategoryNames] = useState({}); // Stores editable category names
+  const [categoryNames, setCategoryNames] = useState({});
 
   // --- STATE: GLOBAL DRIVERS ---
   const [copperRate, setCopperRate] = useState(1270); 
@@ -75,7 +75,6 @@ export default function Calculator() {
       productCatalog.forEach(cat => {
           initialNames[cat.id] = cat.name;
       });
-      // Ensure Custom Category has a name
       initialNames[9999] = "Custom Items";
       setCategoryNames(initialNames);
   }, []);
@@ -177,7 +176,6 @@ export default function Calculator() {
           setCategoryOrder([...categoryOrder, targetCatId]);
       }
       
-      // Ensure state has a name for this category if missing
       if (!categoryNames[targetCatId]) {
           setCategoryNames(prev => ({...prev, [targetCatId]: "Custom Items"}));
       }
@@ -205,13 +203,11 @@ export default function Calculator() {
       setActiveTab('quote');
   };
 
-  // --- DELETE ROW HANDLER ---
   const removeRow = (uid) => {
       setRows(currentRows => currentRows.filter(r => r.uid !== uid));
   };
 
   const updateRow = (uid, field, value) => {
-    // Text fields
     if (field === 'name' || field === 'unit' || field === 'hsn') {
         setRows(rows.map(row => {
             if(row.uid !== uid) return row;
@@ -220,7 +216,6 @@ export default function Calculator() {
         return;
     }
 
-    // Number fields
     const val = value === '' ? 0 : parseFloat(value);
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
@@ -280,7 +275,7 @@ export default function Calculator() {
     setCategoryOrder(newOrder);
   };
 
-  // --- DRAG AND DROP HANDLERS ---
+  // --- DRAG AND DROP ---
   const dragStart = (e, position) => {
     dragItem.current = position;
   };
@@ -345,9 +340,11 @@ export default function Calculator() {
     }, 500);
   };
 
-  // --- STYLES & LAYOUT LOGIC ---
+  // --- STYLES & LAYOUT ---
   const isPrint = isClientMode || isPdfGenerating;
 
+  // IMPORTANT: 
+  // 'max-content' forces the table to grow sideways in Edit Mode
   const tableWidth = isPrint ? '100%' : 'max-content';
   const minTableWidth = isPrint ? '280mm' : '1800px';
 
@@ -376,7 +373,6 @@ export default function Calculator() {
 
   const getColWidth = (type) => {
       if (!isPrint) {
-          // EDIT MODE: Wide
           switch(type) {
               case 'index': return '40px';
               case 'desc': return '350px';
@@ -388,7 +384,6 @@ export default function Calculator() {
               default: return 'auto';
           }
       } else {
-          // PRINT MODE: Tight
           switch(type) {
               case 'index': return '25px';
               case 'desc': return 'auto'; 
@@ -396,7 +391,7 @@ export default function Calculator() {
               case 'small': return '35px';
               case 'med': return '50px';
               case 'rate': return '65px';
-              case 'amt': return '75px';
+              case 'amt': return '85px';
               default: return 'auto';
           }
       }
@@ -526,10 +521,10 @@ export default function Calculator() {
                             <option value="9999">Other / Custom</option>
                         </select>
 
-                        <input placeholder="Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
-                            style={{ width:'120px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
+                        <input placeholder="Item Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
+                            style={{ width:'150px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
                         <input type="number" placeholder="Price..." value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} 
-                            style={{ width:'60px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
+                            style={{ width:'70px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
                         <button onClick={addCustomItem} style={{ background:'#1890ff', color:'white', border:'none', borderRadius:'4px', padding:'5px 10px', cursor:'pointer', fontWeight:'bold' }}>Add</button>
                     </div>
                  </div>
@@ -575,32 +570,39 @@ export default function Calculator() {
       {/* PDF DOCUMENT WRAPPER (SCROLLABLE & WIDE)                                              */}
       {/* ===================================================================================== */}
       
+      {/* CRITICAL FIX: 
+          - Wrapper is block (not flex) to allow natural scrolling.
+          - overflowX: auto specifically handles horizontal scroll.
+          - No centering in edit mode, keeps things left-aligned for scroll.
+      */}
       <div style={{ 
-          overflow: 'auto', 
           width: '100%', 
-          display: 'flex', 
-          justifyContent: isPrint ? 'center' : 'flex-start', 
+          overflowX: 'auto', 
           padding: '20px', 
-          boxSizing: 'border-box' 
+          paddingBottom: '80px', // Extra space for scrollbar
+          boxSizing: 'border-box',
+          textAlign: isPrint ? 'center' : 'left', // Center for print, left for edit scroll
       }}>
           {/* Zoom Wrapper */}
           <div style={{ 
+              display: 'inline-block', // Shrink wrap content
               transform: `scale(${zoomLevel})`, 
-              transformOrigin: 'top left',
+              transformOrigin: isPrint ? 'top center' : 'top left',
               transition: 'transform 0.2s ease',
               marginBottom: '100px',
-              minWidth: isPrint ? 'auto' : 'auto'
+              minWidth: isPrint ? 'auto' : '1800px' // Force width in edit mode to trigger scroll
           }}>
               <div ref={pdfRef} style={{ 
                   background: 'white', 
                   width: isPrint ? '280mm' : 'auto', 
                   minWidth: isPrint ? '280mm' : '1800px', 
                   minHeight: '210mm', 
-                  margin: '0 auto', 
+                  margin: isPrint ? '0 auto' : '0', // Center in print, left in edit
                   padding: isPrint ? '10mm' : '20px', 
                   boxShadow: '0 10px 40px rgba(0,0,0,0.1)', 
                   boxSizing: 'border-box',
-                  display: 'inline-block' 
+                  display: 'inline-block',
+                  textAlign: 'left' // Reset text align for inner content
               }}>
                 
                 {/* ======================= PAGE 1: COVERING LETTER ======================= */}
@@ -610,7 +612,7 @@ export default function Calculator() {
                         <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                         <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
-                    {/* ... (Cover letter) ... */}
+                    {/* ... (Cover letter content omitted for brevity) ... */}
                     <div style={{ marginBottom: '20px' }}>
                         <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
                         <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
