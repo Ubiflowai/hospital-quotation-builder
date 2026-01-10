@@ -7,6 +7,9 @@ export default function Calculator() {
   const [rows, setRows] = useState([]); 
   const [categoryOrder, setCategoryOrder] = useState([]); 
   
+  // NEW: State to store editable category names
+  const [categoryNames, setCategoryNames] = useState({}); 
+
   // --- STATE: GLOBAL DRIVERS ---
   const [copperRate, setCopperRate] = useState(1270); 
   const [baseMarginPercent, setBaseMarginPercent] = useState(20);
@@ -67,6 +70,26 @@ export default function Calculator() {
   const dragOverItem = useRef();
 
   const searchRef = useRef(null);
+
+  // --- INITIALIZATION EFFECT ---
+  // Load category names from data.js into state so they can be edited
+  useEffect(() => {
+      const initialNames = {};
+      productCatalog.forEach(cat => {
+          initialNames[cat.id] = cat.name;
+      });
+      // Ensure Custom Category has a default name
+      initialNames[9999] = "Custom Items";
+      setCategoryNames(initialNames);
+  }, []);
+
+  // --- HANDLER: CATEGORY RENAME ---
+  const handleCategoryRename = (id, newName) => {
+      setCategoryNames(prev => ({
+          ...prev,
+          [id]: newName
+      }));
+  };
 
   // --- HANDLER: IMAGE UPLOAD ---
   const handleImageUpload = (event) => {
@@ -157,23 +180,21 @@ export default function Calculator() {
   const addCustomItem = () => {
       if (!customItemName) return;
       
-      // Use selected category OR default to "Custom Items" (9999)
       const targetCatId = customCatId ? parseInt(customCatId) : 9999;
       
       if (!categoryOrder.includes(targetCatId)) {
           setCategoryOrder([...categoryOrder, targetCatId]);
       }
       
-      // Ensure category exists in catalog for display
-      const existingCat = productCatalog.find(c => c.id === targetCatId);
-      if (!existingCat) {
-          productCatalog.push({ id: targetCatId, name: "Custom Items", items: [] });
+      // If we are adding to a category not in catalog (rare), ensure it has a name in state
+      if (!categoryNames[targetCatId]) {
+          setCategoryNames(prev => ({...prev, [targetCatId]: "Custom Items"}));
       }
 
       const price = parseFloat(customItemPrice) || 0;
       const newRowRaw = {
           uid: Date.now(),
-          id: `custom-${Date.now()}`, // Unique ID
+          id: `custom-${Date.now()}`,
           categoryId: targetCatId,
           name: customItemName,
           hsn: "Gen",
@@ -509,16 +530,17 @@ export default function Calculator() {
                             style={{ padding: '5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none', maxWidth:'150px' }}
                         >
                             <option value="">-- Category --</option>
+                            {/* Dynamically list known categories so user can pick */}
                             {productCatalog.map(cat => (
                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                             ))}
                             <option value="9999">Other / Custom</option>
                         </select>
 
-                        <input placeholder="Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
-                            style={{ width:'120px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
+                        <input placeholder="Item Name..." value={customItemName} onChange={(e) => setCustomItemName(e.target.value)} 
+                            style={{ width:'150px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
                         <input type="number" placeholder="Price..." value={customItemPrice} onChange={(e) => setCustomItemPrice(e.target.value)} 
-                            style={{ width:'60px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
+                            style={{ width:'70px', padding:'5px', borderRadius:'4px', border:'1px solid #ccc', outline:'none' }} />
                         <button onClick={addCustomItem} style={{ background:'#1890ff', color:'white', border:'none', borderRadius:'4px', padding:'5px 10px', cursor:'pointer', fontWeight:'bold' }}>Add</button>
                     </div>
                  </div>
@@ -600,6 +622,7 @@ export default function Calculator() {
                         <div>Ref: <input value={coverRef} onChange={(e) => setCoverRef(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '200px', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                         <div>Date: <input value={coverDate} onChange={(e) => setCoverDate(e.target.value)} style={{ border: 'none', fontWeight: 'bold', width: '120px', textAlign: 'right', fontSize: 'inherit', color:'inherit', outline:'none' }} /></div>
                     </div>
+                    {/* ... (Cover letter content omitted for brevity) ... */}
                     <div style={{ marginBottom: '20px' }}>
                         <div style={{fontWeight:'bold', marginBottom:'5px'}}>TO,</div>
                         <input value={coverToName} onChange={(e) => setCoverToName(e.target.value)} style={{ ...dynamicTextStyle, fontWeight: 'bold', border:'none', padding:'0' }} />
@@ -684,7 +707,8 @@ export default function Calculator() {
                         </thead>
                         <tbody>
                         {categoryOrder.map((catId, catIndex) => {
-                            const category = productCatalog.find(c => c.id === catId);
+                            // GET EDITABLE NAME FROM STATE OR DEFAULT TO CATALOG NAME
+                            const catName = categoryNames[catId] || productCatalog.find(c => c.id === catId)?.name || "Unknown Category";
                             const catRows = rows.filter(r => r.categoryId === catId);
                             let subTotalAmt = 0; let subTotalCost = 0; let subTotalGross = 0;
                             catRows.forEach(r => { subTotalAmt += r.quotedPrice * r.qty; subTotalCost += r.internalCost * r.qty; subTotalGross += (r.quotedPrice - r.internalCost) * r.qty; });
@@ -696,7 +720,17 @@ export default function Calculator() {
                                     <tr>
                                         <td colSpan={isClientMode ? 5 : 18} style={{ padding: '15px 5px', fontWeight: 'bold', color:'#2c3e50', fontSize:'11px', borderBottom:'2px solid #eee' }}>
                                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                                                <span>{category?.name}</span>
+                                                {/* EDITABLE CATEGORY NAME */}
+                                                {isClientMode ? (
+                                                    <span>{catName}</span>
+                                                ) : (
+                                                    <input 
+                                                        value={catName} 
+                                                        onChange={(e) => handleCategoryRename(catId, e.target.value)} 
+                                                        style={{ fontWeight: 'bold', border: 'none', background: 'transparent', width: '100%', outline: 'none', color: '#2c3e50', fontSize: '12px' }}
+                                                    />
+                                                )}
+                                                
                                                 {!isClientMode && (
                                                     <div style={{ fontSize:'10px' }}>
                                                         <button onClick={() => moveCategory(catIndex, 'up')} style={{cursor:'pointer', border:'none', background:'none', padding:'0 5px'}}>▲</button>
@@ -771,7 +805,7 @@ export default function Calculator() {
                                     })}
                                     {!isClientMode && (
                                         <tr style={{ background: '#fff', borderTop: '2px solid #eee' }}>
-                                            <td colSpan={2} style={{textAlign:'right', padding:'8px', fontWeight:'bold', color:'#aaa', fontSize:'10px', textTransform:'uppercase'}}>Subtotal ({category.name}):</td>
+                                            <td colSpan={2} style={{textAlign:'right', padding:'8px', fontWeight:'bold', color:'#aaa', fontSize:'10px', textTransform:'uppercase'}}>Subtotal ({catName}):</td>
                                             <td colSpan={7}></td>
                                             <td colSpan={1} style={{textAlign:'right', padding:'8px', fontSize:'10px', color:'#777'}}>Cost: {subTotalCost.toFixed(0)}</td>
                                             <td colSpan={4}></td>
