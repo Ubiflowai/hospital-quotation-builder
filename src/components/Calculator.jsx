@@ -187,10 +187,12 @@ export default function Calculator() {
       setActiveTab('quote');
   };
 
+  // DELETE ITEM
   const removeRow = (uid) => {
       setRows(prev => prev.filter(r => r.uid !== uid));
   };
 
+  // DELETE SUBSECTION
   const removeCategory = (catId) => {
       setCategoryOrder(prev => prev.filter(id => id !== catId));
       setRows(prev => prev.filter(row => row.categoryId !== catId));
@@ -342,7 +344,6 @@ export default function Calculator() {
       position: isPrint ? 'static' : 'sticky', top: 0, zIndex: 10
   };
 
-  // UPDATED COLUMN WIDTHS
   const getColWidth = (type) => {
       if (!isPrint) {
           switch(type) {
@@ -356,7 +357,7 @@ export default function Calculator() {
               default: return 'auto';
           }
       } else {
-          // PRINT MODE: Percentages summing to 100%
+          // Client/Print Mode: Percentages
           switch(type) {
               case 'index': return '5%';
               case 'desc': return '45%'; 
@@ -415,11 +416,18 @@ export default function Calculator() {
              </div>
         </div>
 
-        {/* INPUTS ROW */}
+        {/* CONTROLS ROW 2 */}
+        {/* WE SHOW THIS ROW ALWAYS, BUT HIDE THE INPUTS IF IN CLIENT MODE */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-             {/* LEFT SIDE: Inputs (Hidden in Client Mode) */}
+             {/* Left Side: Inputs (Hidden in Client Mode) */}
              {!isClientMode ? (
-                 <div style={{ display: 'flex', gap:'20px', alignItems:'center' }}>
+                <div style={{ display: 'flex', gap:'20px', alignItems:'center' }}>
+                     {/* IMAGE UPLOAD (MOVED HERE TO BE VISIBLE IN BOTH TABS) */}
+                     <div style={{ display:'flex', alignItems:'center', gap:'5px', background:'#f8f9fa', padding:'4px 10px', borderRadius:'20px' }}>
+                        <label style={{ fontSize:'12px', fontWeight:'bold' }}>Header:</label>
+                        <input type="file" accept="image/*" onChange={handleImageUpload} style={{ fontSize:'11px', width:'180px' }} />
+                     </div>
+
                      <div style={{ display: 'flex', alignItems: 'center', background: '#fff9db', padding: '4px 10px', borderRadius: '20px', border:'1px solid #ffe066' }}>
                         <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#e67700', marginRight: '5px' }}>Copper:</span>
                         <input type="number" value={copperRate} onChange={(e) => handleCopperRateChange(e.target.value)}
@@ -438,9 +446,12 @@ export default function Calculator() {
                         <button onClick={addCustomItem} style={{ background:'#1890ff', color:'white', border:'none', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontWeight:'bold' }}>Add</button>
                     </div>
                  </div>
-             ) : (<div></div>)}
+             ) : (
+                 // Empty spacer when inputs hidden
+                 <div></div>
+             )}
 
-             {/* RIGHT SIDE: Buttons (ALWAYS VISIBLE) */}
+             {/* Right Side: Action Buttons (ALWAYS VISIBLE) */}
              <div style={{display:'flex', gap:'10px'}}>
                 <button onClick={() => setIsClientMode(!isClientMode)} style={{ padding: '8px 15px', background: isClientMode ? '#2ecc71' : '#95a5a6', color:'white', border: 'none', borderRadius: '6px', cursor:'pointer' }}>{isClientMode ? "Exit Client" : "Client Mode"}</button>
                 <button onClick={handleDownloadPDF} style={{ padding: '8px 15px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor:'pointer' }}>Download PDF</button>
@@ -448,7 +459,7 @@ export default function Calculator() {
         </div>
       </div>
 
-      {/* SEARCH BAR (Only visible in edit mode) */}
+      {/* SEARCH BAR */}
       {(!isClientMode && activeTab === 'quote') && (
         <div ref={searchRef} style={{ width: '95%', maxWidth: '1400px', position: 'relative', marginTop: '10px', marginBottom: '0px', zIndex: 40, flexShrink: 0 }}>
             <input type="text" placeholder="Type to search catalog..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
