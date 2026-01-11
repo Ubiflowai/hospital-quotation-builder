@@ -62,7 +62,6 @@ export default function Calculator() {
   const [signatoryPhone, setSignatoryPhone] = useState("09388774401");
 
   // --- INITIALIZATION ---
-  // Safety check: ensure catalog exists even if import fails temporarily
   const CATALOG = productCatalog || [];
 
   useEffect(() => {
@@ -161,7 +160,6 @@ export default function Calculator() {
           setCategoryOrder([...categoryOrder, targetCatId]);
       }
       
-      // Ensure local state has a name for this category
       if (!categoryNames[targetCatId]) {
           setCategoryNames(prev => ({...prev, [targetCatId]: "Custom Items"}));
       }
@@ -189,16 +187,12 @@ export default function Calculator() {
       setActiveTab('quote');
   };
 
-  // --- DELETE LOGIC ---
   const removeRow = (uid) => {
       setRows(prev => prev.filter(r => r.uid !== uid));
   };
 
-  // DELETE SUBSECTION
   const removeCategory = (catId) => {
-      // Remove from order
       setCategoryOrder(prev => prev.filter(id => id !== catId));
-      // Remove rows
       setRows(prev => prev.filter(row => row.categoryId !== catId));
   };
 
@@ -211,7 +205,7 @@ export default function Calculator() {
     setRows(rows.map(row => {
         if (row.uid !== uid) return row;
         const updated = { ...row, [field]: val };
-        // Recalculation logic based on field
+        
         if (field === 'transAmt') {
              updated.transPercent = row.factoryPrice > 0 ? (val / row.factoryPrice) * 100 : 0;
         } else if (field === 'marginAmt') {
@@ -309,9 +303,7 @@ export default function Calculator() {
   const handleDownloadPDF = () => {
     setIsPdfGenerating(true);
     const wasInClientMode = isClientMode;
-    // Force into client mode for clean PDF
     if (!isClientMode) setIsClientMode(true);
-    
     setTimeout(() => {
         const element = pdfRef.current;
         html2pdf().set({ 
@@ -322,7 +314,6 @@ export default function Calculator() {
             pagebreak: { mode: ['css', 'legacy'] } 
         }).from(element).save().then(() => {
              setIsPdfGenerating(false);
-             // Revert mode if it wasn't in client mode
              if (!wasInClientMode) setIsClientMode(false);
         });
     }, 500);
@@ -331,7 +322,6 @@ export default function Calculator() {
   // --- STYLES & COLUMN LOGIC ---
   const isPrint = isClientMode || isPdfGenerating;
   
-  // For A4, we use strict percentage widths. For Edit, we use fixed pixels.
   const tableWidth = isPrint ? '100%' : 'max-content';
   const minTableWidth = isPrint ? '100%' : '1800px';
 
@@ -340,7 +330,7 @@ export default function Calculator() {
       minWidth: minTableWidth,
       borderCollapse: 'collapse',
       fontSize: isPrint ? '10px' : '12px',
-      tableLayout: 'fixed', // Strict column sizing
+      tableLayout: 'fixed',
   };
 
   const tableHeaderStyle = { 
@@ -352,10 +342,9 @@ export default function Calculator() {
       position: isPrint ? 'static' : 'sticky', top: 0, zIndex: 10
   };
 
-  // UPDATED COLUMN WIDTHS TO FIT A4
+  // UPDATED COLUMN WIDTHS
   const getColWidth = (type) => {
       if (!isPrint) {
-          // EDIT MODE: Large fixed widths
           switch(type) {
               case 'index': return '40px';
               case 'desc': return '350px';
@@ -367,11 +356,11 @@ export default function Calculator() {
               default: return 'auto';
           }
       } else {
-          // PRINT MODE: Percentages summing to ~100%
+          // PRINT MODE: Percentages summing to 100%
           switch(type) {
               case 'index': return '5%';
               case 'desc': return '45%'; 
-              case 'small': return '10%'; // Qty & Unit
+              case 'small': return '10%'; 
               case 'rate': return '15%';
               case 'amt': return '15%';
               default: return 'auto';
@@ -426,8 +415,10 @@ export default function Calculator() {
              </div>
         </div>
 
-        {!isClientMode && (
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+        {/* INPUTS ROW */}
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+             {/* LEFT SIDE: Inputs (Hidden in Client Mode) */}
+             {!isClientMode ? (
                  <div style={{ display: 'flex', gap:'20px', alignItems:'center' }}>
                      <div style={{ display: 'flex', alignItems: 'center', background: '#fff9db', padding: '4px 10px', borderRadius: '20px', border:'1px solid #ffe066' }}>
                         <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#e67700', marginRight: '5px' }}>Copper:</span>
@@ -447,15 +438,17 @@ export default function Calculator() {
                         <button onClick={addCustomItem} style={{ background:'#1890ff', color:'white', border:'none', borderRadius:'4px', padding:'2px 8px', cursor:'pointer', fontWeight:'bold' }}>Add</button>
                     </div>
                  </div>
-                <div style={{display:'flex', gap:'10px'}}>
-                    <button onClick={() => setIsClientMode(!isClientMode)} style={{ padding: '8px 15px', background: isClientMode ? '#2ecc71' : '#95a5a6', color:'white', border: 'none', borderRadius: '6px', cursor:'pointer' }}>{isClientMode ? "Exit Client" : "Client Mode"}</button>
-                    <button onClick={handleDownloadPDF} style={{ padding: '8px 15px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor:'pointer' }}>Download PDF</button>
-                </div>
-            </div>
-        )}
+             ) : (<div></div>)}
+
+             {/* RIGHT SIDE: Buttons (ALWAYS VISIBLE) */}
+             <div style={{display:'flex', gap:'10px'}}>
+                <button onClick={() => setIsClientMode(!isClientMode)} style={{ padding: '8px 15px', background: isClientMode ? '#2ecc71' : '#95a5a6', color:'white', border: 'none', borderRadius: '6px', cursor:'pointer' }}>{isClientMode ? "Exit Client" : "Client Mode"}</button>
+                <button onClick={handleDownloadPDF} style={{ padding: '8px 15px', background: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor:'pointer' }}>Download PDF</button>
+             </div>
+        </div>
       </div>
 
-      {/* SEARCH BAR */}
+      {/* SEARCH BAR (Only visible in edit mode) */}
       {(!isClientMode && activeTab === 'quote') && (
         <div ref={searchRef} style={{ width: '95%', maxWidth: '1400px', position: 'relative', marginTop: '10px', marginBottom: '0px', zIndex: 40, flexShrink: 0 }}>
             <input type="text" placeholder="Type to search catalog..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setShowDropdown(true); }}
